@@ -38,8 +38,6 @@ export default class MainScene {
     texture: 'me',
     appearFrom: 'front',
     pointSize: 2.5,
-    waveFrequency: 0.047,
-    waveSpeed: 1,
   }
 
   constructor() {
@@ -201,7 +199,6 @@ export default class MainScene {
       uTime: { value: 0 },
       uTouch: { value: this.touch.texture },
       uScaleHeightPointSize: { value: (this.dpr * this.height) / 2 },
-      uWaveFrequency: { value: this.guiObj.waveFrequency },
     }
 
     // create a custom shaderMaterial for this geometry
@@ -275,11 +272,6 @@ export default class MainScene {
       this.uniforms.uPointSize.value = this.guiObj.pointSize
     })
 
-    gui.add(this.guiObj, 'waveFrequency', 0, 0.5).onChange(() => {
-      this.uniforms.uWaveFrequency.value = this.guiObj.waveFrequency
-    })
-
-    gui.add(this.guiObj, 'waveSpeed', 0, 10)
   }
   /**
    * List of events
@@ -306,8 +298,6 @@ export default class MainScene {
     sortPoints(this.mesh, this.camera) // sort points to avoid render order issues due to transparency
 
     this.renderer.render(this.scene, this.camera) // render scene
-
-    this.uniforms.uTime.value = (time * this.guiObj.waveSpeed) / 1000 // update time
 
     this.touch.update() // update touch texture
 
