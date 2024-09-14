@@ -1,3 +1,6 @@
+// Vertex Shader
+precision mediump float;
+
 uniform float uPointSize;
 uniform float uProgress;
 uniform float uTime;
@@ -11,9 +14,6 @@ attribute vec3 initPosition;
 
 varying vec2 vTexCoords;
 
-const float scale = 1.0;
-const float waveAmplitude = 5.;
-
 void main() {
   // shunk of code used in Three.js
   // https://github.com/mrdoob/three.js/blob/master/src/renderers/shaders/ShaderChunk/begin_vertex.glsl.js
@@ -21,10 +21,6 @@ void main() {
 
   // appear effect
   transformed = initPosition + ((position - initPosition) * uProgress);
-
-  // flag effect
-  transformed.z += sin(transformed.x * uWaveFrequency + uTime) * waveAmplitude;
-  transformed.z += sin(transformed.y * uWaveFrequency + uTime) * waveAmplitude;
 
   // get UVs of the plane
   vec2 vUv = transformed.xy / vec2(uNbLines, uNbColumns) - vec2(-0.5, -0.5);

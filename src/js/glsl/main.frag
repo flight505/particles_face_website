@@ -1,3 +1,6 @@
+// Fragment Shader
+precision mediump float;
+
 uniform vec3 uColor;
 uniform sampler2D uTexture;
 uniform float uNbLines;
@@ -18,6 +21,7 @@ void main() {
 
   // We get the coordinate inside 1 particle: gl_PointCoord
   vec2 uv = gl_PointCoord;
+
   //  We invert the V because it's inverted by default when using gl_PointCoord compare to classic UVs.
   uv.y *= -1.;
   // we divide U by the number of particles in a line
@@ -46,7 +50,7 @@ void main() {
 
   gl_FragColor.a = 1.;
   // make an circle opacity to create round particles
-  gl_FragColor.a *= circle(gl_PointCoord, 0.2);
+  gl_FragColor.a *= circle(gl_PointCoord, 0.2) * uProgress;
   // apply opacity on the appear effect as well
   gl_FragColor.a *= uProgress;
 }

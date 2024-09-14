@@ -41,40 +41,52 @@ export default class MainScene {
 
   constructor() {
     this.canvas = document.querySelector('.scene')
+    if (!this.canvas) {
+      throw new Error('Canvas element with class "scene" not found')
+    }
+    this.width = window.innerWidth
+    this.height = window.innerHeight
 
     // Create touch texture for mouse particles animation
     this.touch = new TouchTexture()
 
-    this.init()
+    this.init().catch(error => {
+      console.error('Initialization failed:', error)
+      // Optionally, display an error message to the user
+    })
   }
 
   init = async () => {
-    // Preload assets before initiating the scene
-    const assets = [
-      {
-        name: 'me',
-        texture: './img/me.png',
-      },
-    ]
+    try {
+      // Preload assets before initiating the scene
+      const assets = [
+        { name: 'me', texture: './img/me.png' },
+        { name: 'sprite1', texture: './img/sprite1.jpg' },
+        { name: 'sprite2', texture: './img/sprite2.jpg' },
+      ]
 
-    await LoaderManager.load(assets)
+      await LoaderManager.load(assets)
 
-    this.setStats()
-    this.setGUI()
-    this.setScene()
-    this.setRender()
-    this.setCamera()
-    this.setControls()
-    this.setParticlesGrid()
-    // this.setAxesHelper()
-    this.setRaycaster()
+      this.setStats()
+      this.setGUI()
+      this.setScene()
+      this.setRender()
+      this.setCamera()
+      this.setControls()
+      this.setParticlesGrid()
+      // this.setAxesHelper()
+      this.setRaycaster()
 
-    this.handleResize()
+      this.handleResize()
 
-    // start RAF
-    this.events()
+      // start RAF
+      this.events()
 
-    this.animateIn()
+      this.animateIn()
+    } catch (error) {
+      console.error('Error during initialization:', error)
+      throw error // Re-throw to be caught in the constructor
+    }
   }
 
   /**
@@ -82,10 +94,15 @@ export default class MainScene {
    * https://threejs.org/docs/?q=rend#api/en/renderers/WebGLRenderer
    */
   setRender() {
-    this.renderer = new WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true,
-    })
+    try {
+      this.renderer = new WebGLRenderer({
+        canvas: this.canvas,
+        antialias: true,
+      })
+    } catch (error) {
+      console.error('Error setting up WebGL renderer:', error)
+      throw error
+    }
   }
 
   /**
@@ -125,81 +142,94 @@ export default class MainScene {
    * https://threejs.org/docs/?q=orbi#examples/en/controls/OrbitControls
    */
   setControls() {
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement)
-    this.controls.enableDamping = true
-    // this.controls.autoRotate = true
-    // this.controls.dampingFactor = 0.04
+    try {
+      this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+      this.controls.enableDamping = true;
+      this.controls.enableRotate = true; // Disable rotation if not needed
+      this.controls.enableZoom = false;   // Disable zoom if not needed
+      // this.controls.autoRotate = true
+      // this.controls.dampingFactor = 0.04
+    } catch (error) {
+      console.error('Error setting up OrbitControls:', error)
+      // Optionally, you might want to continue without controls
+      this.controls = null
+    }
   }
 
   setParticlesGrid() {
-    // Create a grid of particles
+    try {
+      // Create a grid of particles
 
-    // create a geometry
-    const geometry = new BufferGeometry()
+      // create a geometry
+      const geometry = new BufferGeometry()
 
-    const particles = []
-    const initPositions = []
-    const multiplier = 18
-    const nbColumns = 9 * multiplier
-    const nbLines = 16 * multiplier
+      const particles = []
+      const initPositions = []
+      const multiplier = 18
+      const nbColumns = 9 * multiplier
+      const nbLines = 16 * multiplier
 
-    this.nbColumns = nbColumns
-    this.nbLines = nbLines
+      this.nbColumns = nbColumns
+      this.nbLines = nbLines
 
-    const halfColumn = nbColumns / 2
-    const halfLines = nbLines / 2
+      const halfColumn = nbColumns / 2
+      const halfLines = nbLines / 2
 
-    // for each line / column add a "particule" to the array
+      // for each line / column add a "particule" to the array
 
-    for (let i = 0; i < nbLines; i++) {
-      for (let y = 0; y < nbColumns; y++) {
-        const point = [i, y, 0.0] // coordinates of each points
+      for (let i = 0; i < nbLines; i++) {
+        for (let y = 0; y < nbColumns; y++) {
+          const point = [i, y, 0.0] // coordinates of each points
 
-        // appear from Z
-        const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
+          // appear from Z
+          const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
 
-        particles.push(...point) // spread the coordinates for Float32Array
-        initPositions.push(...initPoint)
+          particles.push(...point) // spread the coordinates for Float32Array
+          initPositions.push(...initPoint)
+        }
       }
+
+      const vertices = new Float32Array(particles)
+      const initPositionsFloat = new Float32Array(initPositions)
+
+      // console.log(particles)
+      // Add the particles to the array as "position" and "initPosition"
+      // itemSize = 3 because there are 3 values (components) per vertex
+      geometry.setAttribute('position', new BufferAttribute(vertices, 3))
+      geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
+
+      geometry.center()
+      // const material = new MeshBasicMaterial({ color: 0xff0000 })
+
+      this.dpr = 2
+      this.uniforms = {
+        uColor: { value: new Color(0xff0000) },
+        uPointSize: { value: this.guiObj.pointSize },
+        uTexture: { value: LoaderManager.assets[this.guiObj.texture].texture },
+        uNbLines: { value: nbLines },
+        uNbColumns: { value: nbColumns },
+        uProgress: { value: this.guiObj.uProgress },
+        uTime: { value: 0 },
+        uTouch: { value: this.touch.texture },
+        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2 },
+      }
+
+      // create a custom shaderMaterial for this geometry
+      const customMaterial = new ShaderMaterial({
+        uniforms: this.uniforms,
+        vertexShader,
+        fragmentShader,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      })
+      this.mesh = new Points(geometry, customMaterial)
+
+      this.scene.add(this.mesh)
+    } catch (error) {
+      console.error('Error setting up particle grid:', error)
+      throw error
     }
-
-    const vertices = new Float32Array(particles)
-    const initPositionsFloat = new Float32Array(initPositions)
-
-    // console.log(particles)
-    // Add the particles to the array as "position" and "initPosition"
-    // itemSize = 3 because there are 3 values (components) per vertex
-    geometry.setAttribute('position', new BufferAttribute(vertices, 3))
-    geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
-
-    geometry.center()
-    // const material = new MeshBasicMaterial({ color: 0xff0000 })
-
-    this.dpr = 2
-    this.uniforms = {
-      uColor: { value: new Color(0xff0000) },
-      uPointSize: { value: this.guiObj.pointSize },
-      uTexture: { value: LoaderManager.assets[this.guiObj.texture].texture },
-      uNbLines: { value: nbLines },
-      uNbColumns: { value: nbColumns },
-      uProgress: { value: this.guiObj.uProgress },
-      uTime: { value: 0 },
-      uTouch: { value: this.touch.texture },
-      uScaleHeightPointSize: { value: (this.dpr * this.height) / 2 },
-    }
-
-    // create a custom shaderMaterial for this geometry
-    const customMaterial = new ShaderMaterial({
-      uniforms: this.uniforms,
-      vertexShader,
-      fragmentShader,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-    })
-    this.mesh = new Points(geometry, customMaterial)
-
-    this.scene.add(this.mesh)
   }
 
   animateIn() {
@@ -230,26 +260,37 @@ export default class MainScene {
    * Build stats to display fps
    */
   setStats() {
-    this.stats = new Stats()
-    this.stats.showPanel(0)
-    document.body.appendChild(this.stats.dom)
+    try {
+      this.stats = new Stats()
+      this.stats.showPanel(0)
+      document.body.appendChild(this.stats.dom)
+    } catch (error) {
+      console.error('Error setting up stats:', error)
+      // Optionally continue without stats
+      this.stats = null
+    }
   }
 
   setGUI() {
-    const gui = new GUI()
-    gui.add(this.guiObj, 'uProgress', 0, 1).onChange(() => {
-      this.uniforms.uProgress.value = this.guiObj.uProgress
-    })
-    gui
-      .add(this.guiObj, 'texture', { me: 'me' })
-      .onChange(() => {
-        this.uniforms.uTexture.value = LoaderManager.assets[this.guiObj.texture].texture
-        this.animateIn()
+    try {
+      const gui = new GUI()
+      gui.add(this.guiObj, 'uProgress', 0, 1).onChange(() => {
+        this.uniforms.uProgress.value = this.guiObj.uProgress
       })
+      gui
+        .add(this.guiObj, 'texture', { me: 'me' })
+        .onChange(() => {
+          this.uniforms.uTexture.value = LoaderManager.assets[this.guiObj.texture].texture
+          this.animateIn()
+        })
 
-    gui.add(this.guiObj, 'pointSize', 0, 4).onChange(() => {
-      this.uniforms.uPointSize.value = this.guiObj.pointSize
-    })
+      gui.add(this.guiObj, 'pointSize', 0, 4).onChange(() => {
+        this.uniforms.uPointSize.value = this.guiObj.pointSize
+      })
+    } catch (error) {
+      console.error('Error setting up GUI:', error)
+      // Optionally continue without GUI
+    }
   }
   /**
    * List of events
@@ -268,20 +309,22 @@ export default class MainScene {
    * @param {Number} now
    */
   draw = (time) => {
-    // now: time in ms
-    this.stats.begin()
+    if (this.stats) this.stats.begin();
 
-    if (this.controls) this.controls.update() // for damping
+    if (this.controls) this.controls.update(); // for damping
 
-    sortPoints(this.mesh, this.camera) // sort points to avoid render order issues due to transparency
+    sortPoints(this.mesh, this.camera); // sort points to avoid render order issues due to transparency
 
-    this.renderer.render(this.scene, this.camera) // render scene
+    // Update uTime
+    this.uniforms.uTime.value = time * 0.001; // Convert to seconds
 
-    this.touch.update() // update touch texture
+    this.renderer.render(this.scene, this.camera); // render scene
 
-    this.stats.end()
-    this.raf = window.requestAnimationFrame(this.draw)
-  }
+    this.touch.update(); // update touch texture
+
+    if (this.stats) this.stats.end();
+    this.raf = window.requestAnimationFrame(this.draw);
+  };
 
   /**
    * On resize, we need to adapt our camera based

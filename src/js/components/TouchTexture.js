@@ -1,14 +1,14 @@
 import { Texture } from 'three'
 
 function outSine(n) {
-  return Math.sin((n * Math.PI) / 2)
+  return Math.sin((n * Math.PI) / 2);
 }
 
 export default class TouchTexture {
-  constructor() {
-    this.size = 64
-    this.maxAge = 60
-    this.radius = 0.15
+  constructor(options = {}) {
+    this.size = options.size || 64
+    this.maxAge = options.maxAge || 60
+    this.radius = options.radius || 0.15
     this.trail = []
     this.canDraw = true
 
@@ -35,6 +35,7 @@ export default class TouchTexture {
 
     // No need to add it to the body,
     // document.body.appendChild(this.canvas)
+    this.canvas.style.display = 'none'
   }
 
   update() {
@@ -68,6 +69,7 @@ export default class TouchTexture {
   }
 
   addTouch(point) {
+    if (this.trail.length > 100) this.trail.shift() // Example cap
     let force = 0
     const last = this.trail[this.trail.length - 1]
     if (last) {
