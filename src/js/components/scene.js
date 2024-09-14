@@ -1,15 +1,13 @@
 import {
-  Color,
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
-  AxesHelper,
   BufferGeometry,
   BufferAttribute,
   Points,
   ShaderMaterial,
   Raycaster,
-  Vector2,
+  Vector2
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
@@ -35,9 +33,9 @@ export default class MainScene {
   height
   guiObj = {
     uProgress: 0,
-    texture: 'me',
     pointSize: 1.5,
   }
+
 
   constructor() {
     this.canvas = document.querySelector('.scene')
@@ -66,6 +64,7 @@ export default class MainScene {
       ]
 
       await LoaderManager.load(assets)
+      console.log('Loaded Textures:', LoaderManager.assets)
 
       this.setStats()
       this.setGUI()
@@ -99,6 +98,8 @@ export default class MainScene {
         canvas: this.canvas,
         antialias: true,
       })
+      this.renderer.setSize(this.width, this.height)
+      this.renderer.setPixelRatio(window.devicePixelRatio || 1)
     } catch (error) {
       console.error('Error setting up WebGL renderer:', error)
       throw error
@@ -129,9 +130,7 @@ export default class MainScene {
 
     // set classic camera
     this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
-    this.camera.position.y = 0
-    this.camera.position.x = 0
-    this.camera.position.z = 125
+    this.camera.position.set(0, 0, 125)
     this.camera.lookAt(0, 0, 0)
 
     this.scene.add(this.camera)
@@ -143,10 +142,10 @@ export default class MainScene {
    */
   setControls() {
     try {
-      this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-      this.controls.enableDamping = true;
-      this.controls.enableRotate = true; // Disable rotation if not needed
-      this.controls.enableZoom = false;   // Disable zoom if not needed
+      this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+      this.controls.enableDamping = true
+      this.controls.enableRotate = true // Disable rotation to prevent interference
+      this.controls.enableZoom = false   // Disable zoom if not needed
       // this.controls.autoRotate = true
       // this.controls.dampingFactor = 0.04
     } catch (error) {
@@ -175,11 +174,11 @@ export default class MainScene {
       const halfColumn = nbColumns / 2
       const halfLines = nbLines / 2
 
-      // for each line / column add a "particule" to the array
+      // for each line / column add a "particle" to the array
 
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i, y, 0.0] // coordinates of each points
+          const point = [i, y, 0.0] // coordinates of each point
 
           // appear from Z
           const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
@@ -192,7 +191,6 @@ export default class MainScene {
       const vertices = new Float32Array(particles)
       const initPositionsFloat = new Float32Array(initPositions)
 
-      // console.log(particles)
       // Add the particles to the array as "position" and "initPosition"
       // itemSize = 3 because there are 3 values (components) per vertex
       geometry.setAttribute('position', new BufferAttribute(vertices, 3))
@@ -201,18 +199,28 @@ export default class MainScene {
       geometry.center()
       // const material = new MeshBasicMaterial({ color: 0xff0000 })
 
-      this.dpr = 2
+      this.dpr = 2 // device pixel ratio
       this.uniforms = {
-        uColor: { value: new Color(0xff0000) },
         uPointSize: { value: this.guiObj.pointSize },
-        uTexture: { value: LoaderManager.assets[this.guiObj.texture].texture },
         uNbLines: { value: nbLines },
         uNbColumns: { value: nbColumns },
         uProgress: { value: this.guiObj.uProgress },
         uTime: { value: 0 },
         uTouch: { value: this.touch.texture },
         uScaleHeightPointSize: { value: (this.dpr * this.height) / 2 },
+        uBrightness: { value: 2.0 }, // New uniform for controlling brightness
+        // New uniforms for sprite sheets
+        uFrameIndex: { value: 0.0 }, // Current frame index
+        uSpriteCols: { value: 5.0 }, // Columns per sprite sheet
+        uSpriteRows: { value: 10.0 }, // Rows per sprite sheet
+        uTotalFrames: { value: 100.0 }, // Total frames (sprite1 + sprite2)
+
+        // Sprite sheet textures
+        uSprite1: { value: LoaderManager.assets['sprite1'].texture },
+        uSprite2: { value: LoaderManager.assets['sprite2'].texture },
       }
+
+
 
       // create a custom shaderMaterial for this geometry
       const customMaterial = new ShaderMaterial({
@@ -277,13 +285,7 @@ export default class MainScene {
       gui.add(this.guiObj, 'uProgress', 0, 1).onChange(() => {
         this.uniforms.uProgress.value = this.guiObj.uProgress
       })
-      gui
-        .add(this.guiObj, 'texture', { me: 'me' })
-        .onChange(() => {
-          this.uniforms.uTexture.value = LoaderManager.assets[this.guiObj.texture].texture
-          this.animateIn()
-        })
-
+      // Removed texture selection GUI as frame index now controls sprite sheets
       gui.add(this.guiObj, 'pointSize', 0, 4).onChange(() => {
         this.uniforms.uPointSize.value = this.guiObj.pointSize
       })
@@ -309,22 +311,22 @@ export default class MainScene {
    * @param {Number} now
    */
   draw = (time) => {
-    if (this.stats) this.stats.begin();
+    if (this.stats) this.stats.begin()
 
-    if (this.controls) this.controls.update(); // for damping
+    if (this.controls) this.controls.update() // for damping
 
-    sortPoints(this.mesh, this.camera); // sort points to avoid render order issues due to transparency
+    sortPoints(this.mesh, this.camera) // sort points to avoid render order issues due to transparency
 
     // Update uTime
-    this.uniforms.uTime.value = time * 0.001; // Convert to seconds
+    this.uniforms.uTime.value = time * 0.001 // Convert to seconds
 
-    this.renderer.render(this.scene, this.camera); // render scene
+    this.renderer.render(this.scene, this.camera) // render scene
 
-    this.touch.update(); // update touch texture
+    this.touch.update() // update touch texture
 
-    if (this.stats) this.stats.end();
-    this.raf = window.requestAnimationFrame(this.draw);
-  };
+    if (this.stats) this.stats.end()
+    this.raf = window.requestAnimationFrame(this.draw)
+  }
 
   /**
    * On resize, we need to adapt our camera based
@@ -363,8 +365,16 @@ export default class MainScene {
     this.mouse.x = x
     this.mouse.y = y
 
-    // from the mouse position, use a raycaster to know when the 2D plane is being touch
+    // Calculate normalized mouse X position (0 to 1)
+    const normalizedX = e.clientX / window.innerWidth
 
+    // Map to frame index (float)
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
+
+    // Update the frame index uniform
+    this.uniforms.uFrameIndex.value = frameIndex
+
+    // From the mouse position, use a raycaster to know when the 2D plane is being touched
     this.ray.setFromCamera(this.mouse, this.camera)
     this.intersects = this.ray.intersectObjects([this.mesh])
 
@@ -384,6 +394,16 @@ export default class MainScene {
     this.mouse.x = x
     this.mouse.y = y
 
+    // Calculate normalized mouse X position (0 to 1)
+    const normalizedX = e.touches[0].clientX / window.innerWidth
+
+    // Map to frame index (float)
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
+
+    // Update the frame index uniform
+    this.uniforms.uFrameIndex.value = frameIndex
+
+    // From the mouse position, use a raycaster to know when the 2D plane is being touched
     this.ray.setFromCamera(this.mouse, this.camera)
     this.intersects = this.ray.intersectObjects([this.mesh])
 

@@ -8,7 +8,6 @@ uniform sampler2D uTouch;
 uniform float uNbLines;
 uniform float uNbColumns;
 uniform float uScaleHeightPointSize;
-uniform float uWaveFrequency;
 
 attribute vec3 initPosition;
 
@@ -32,10 +31,10 @@ void main() {
   transformed.z += touch * 40.;
 
   // https://github.com/mrdoob/three.js/blob/master/src/renderers/shaders/ShaderChunk/project_vertex.glsl.js
-	#include <project_vertex>
+  #include <project_vertex>
 
   // get Texture coords for fragment shader
-  vTexCoords = position.xy;
+  vTexCoords = position.xy / vec2(uNbLines, uNbColumns);
 
   // Final Position
   gl_PointSize = uPointSize * ( uScaleHeightPointSize / - mvPosition.z );

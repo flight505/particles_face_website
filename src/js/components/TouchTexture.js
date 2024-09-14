@@ -55,7 +55,7 @@ export default class TouchTexture {
 
     // draw white points
     this.trail.forEach((point, i) => {
-      this.drawTouch(point)
+      this.drawTouch(point, i)
     })
 
     // update texture
