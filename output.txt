@@ -1,0 +1,624 @@
+
+===== Filename: src/js/components/scene.js =====
+
+import {
+  Color,
+  WebGLRenderer,
+  Scene,
+  PerspectiveCamera,
+  AxesHelper,
+  BufferGeometry,
+  BufferAttribute,
+  Points,
+  ShaderMaterial,
+  Raycaster,
+  Vector2,
+} from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import Stats from 'stats-js'
+import LoaderManager from '@/js/managers/LoaderManager'
+import GUI from 'lil-gui'
+
+import vertexShader from '@/js/glsl/main.vert'
+import fragmentShader from '@/js/glsl/main.frag'
+import { randFloat } from 'three/src/math/MathUtils'
+import gsap from 'gsap'
+import TouchTexture from './TouchTexture'
+import { sortPoints } from '@/js/utils/three'
+import { isTouch } from '@/js/utils/isTouch'
+
+export default class MainScene {
+  canvas
+  renderer
+  scene
+  camera
+  controls
+  stats
+  width
+  height
+  guiObj = {
+    uProgress: 0,
+    texture: 'me',
+    appearFrom: 'front',
+    pointSize: 2.5,
+    waveFrequency: 0.047,
+    waveSpeed: 1,
+  }
+
+  constructor() {
+    this.canvas = document.querySelector('.scene')
+
+    // Create touch texture for mouse particles animation
+    this.touch = new TouchTexture()
+
+    this.init()
+  }
+
+  init = async () => {
+    // Preload assets before initiating the scene
+    const assets = [
+      {
+        name: 'me',
+        texture: './img/me.png',
+      },
+    ]
+
+    await LoaderManager.load(assets)
+
+    this.setStats()
+    this.setGUI()
+    this.setScene()
+    this.setRender()
+    this.setCamera()
+    this.setControls()
+    this.setParticlesGrid()
+    // this.setAxesHelper()
+    this.setRaycaster()
+
+    this.handleResize()
+
+    // start RAF
+    this.events()
+
+    this.animateIn()
+  }
+
+  /**
+   * Our Webgl renderer, an object that will draw everything in our canvas
+   * https://threejs.org/docs/?q=rend#api/en/renderers/WebGLRenderer
+   */
+  setRender() {
+    this.renderer = new WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+    })
+  }
+
+  /**
+   * This is our scene, we'll add any object
+   * https://threejs.org/docs/?q=scene#api/en/scenes/Scene
+   */
+  setScene() {
+    this.scene = new Scene()
+    // this.scene.background = new Color(0xffffff)
+  }
+
+  /**
+   * Our Perspective camera, this is the point of view that we'll have
+   * of our scene.
+   * A perscpective camera is mimicing the human eyes so something far we'll
+   * look smaller than something close
+   * https://threejs.org/docs/?q=pers#api/en/cameras/PerspectiveCamera
+   */
+  setCamera() {
+    const aspectRatio = this.width / this.height
+    const fieldOfView = 60
+    const nearPlane = 0.1
+    const farPlane = 10000
+
+    // set classic camera
+    this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
+    this.camera.position.y = 0
+    this.camera.position.x = 0
+    this.camera.position.z = 250
+    this.camera.lookAt(0, 0, 0)
+
+    this.scene.add(this.camera)
+  }
+
+  /**
+   * Threejs controls to have controls on our scene
+   * https://threejs.org/docs/?q=orbi#examples/en/controls/OrbitControls
+   */
+  setControls() {
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+    this.controls.enableDamping = true
+    // this.controls.autoRotate = true
+    // this.controls.dampingFactor = 0.04
+  }
+
+  setParticlesGrid() {
+    // Create a grid of particles
+
+    // create a geometry
+    const geometry = new BufferGeometry()
+
+    const particles = []
+    const initPositions = []
+    const multiplier = 18
+    const nbColumns = 9 * multiplier
+    const nbLines = 16 * multiplier
+
+    this.nbColumns = nbColumns
+    this.nbLines = nbLines
+
+    const offsetTransition = 50
+
+    const halfColumn = nbColumns / 2
+    const halfLines = nbLines / 2
+
+    // for each line / column add a "particule" to the array
+
+    for (let i = 0; i < nbLines; i++) {
+      for (let y = 0; y < nbColumns; y++) {
+        const point = [i, y, 0.0] // coordinates of each points
+
+        // appear from side
+        let initPoint = [
+          i / 3 - halfLines + randFloat(halfLines, halfLines + offsetTransition),
+          (y - halfColumn - randFloat(halfColumn, halfColumn + offsetTransition)) / 3,
+          randFloat(-50, 50),
+        ]
+
+        // appear from Z
+        if (this.guiObj.appearFrom === 'front') {
+          initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
+        }
+
+        // particles.push(point)
+        particles.push(...point) // spread the coordinates for Float32Array
+        initPositions.push(...initPoint)
+      }
+    }
+
+    const vertices = new Float32Array(particles)
+    const initPositionsFloat = new Float32Array(initPositions)
+
+    // console.log(particles)
+    // Add the particles to the array as "position" and "initPosition"
+    // itemSize = 3 because there are 3 values (components) per vertex
+    geometry.setAttribute('position', new BufferAttribute(vertices, 3))
+    geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
+
+    geometry.center()
+    // const material = new MeshBasicMaterial({ color: 0xff0000 })
+
+    this.dpr = 2
+    this.uniforms = {
+      uColor: { value: new Color(0xff0000) },
+      uPointSize: { value: this.guiObj.pointSize },
+      uTexture: { value: LoaderManager.assets[this.guiObj.texture].texture },
+      uNbLines: { value: nbLines },
+      uNbColumns: { value: nbColumns },
+      uProgress: { value: this.guiObj.uProgress },
+      uTime: { value: 0 },
+      uTouch: { value: this.touch.texture },
+      uScaleHeightPointSize: { value: (this.dpr * this.height) / 2 },
+      uWaveFrequency: { value: this.guiObj.waveFrequency },
+    }
+
+    // create a custom shaderMaterial for this geometry
+    const customMaterial = new ShaderMaterial({
+      uniforms: this.uniforms,
+      vertexShader,
+      fragmentShader,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    })
+    this.mesh = new Points(geometry, customMaterial)
+
+    this.scene.add(this.mesh)
+  }
+
+  animateIn() {
+    // animate progress uniform
+    gsap.fromTo(
+      this.uniforms.uProgress,
+      {
+        value: 0,
+      },
+      {
+        value: 1,
+        duration: 2.5,
+        ease: 'Power4.easeOut',
+      }
+    )
+  }
+
+  /**
+   * Axes Helper
+   * https://threejs.org/docs/?q=Axesh#api/en/helpers/AxesHelper
+   */
+  setAxesHelper() {
+    const axesHelper = new AxesHelper(3)
+    this.scene.add(axesHelper)
+  }
+
+  /**
+   * Build stats to display fps
+   */
+  setStats() {
+    this.stats = new Stats()
+    this.stats.showPanel(0)
+    document.body.appendChild(this.stats.dom)
+  }
+
+  setGUI() {
+    const gui = new GUI()
+    gui.add(this.guiObj, 'uProgress', 0, 1).onChange(() => {
+      this.uniforms.uProgress.value = this.guiObj.uProgress
+    })
+    gui
+      .add(this.guiObj, 'texture', { me: 'me' })
+      .onChange(() => {
+        this.uniforms.uTexture.value = LoaderManager.assets[this.guiObj.texture].texture
+        this.animateIn()
+      })
+
+    gui.add(this.guiObj, 'appearFrom', { front: 'front', side: 'side' }).onChange(() => {
+      this.mesh.geometry.dispose()
+      this.mesh.material.dispose()
+      this.scene.remove(this.mesh)
+      this.setParticlesGrid()
+      this.animateIn()
+    })
+
+    gui.add(this.guiObj, 'pointSize', 0, 4).onChange(() => {
+      this.uniforms.uPointSize.value = this.guiObj.pointSize
+    })
+
+    gui.add(this.guiObj, 'waveFrequency', 0, 0.5).onChange(() => {
+      this.uniforms.uWaveFrequency.value = this.guiObj.waveFrequency
+    })
+
+    gui.add(this.guiObj, 'waveSpeed', 0, 10)
+  }
+  /**
+   * List of events
+   */
+  events() {
+    window.addEventListener('resize', this.handleResize, { passive: true })
+    this.draw(0)
+  }
+
+  // EVENTS
+
+  /**
+   * Request animation frame function
+   * This function is called 60/time per seconds with no performance issue
+   * Everything that happens in the scene is drawed here
+   * @param {Number} now
+   */
+  draw = (time) => {
+    // now: time in ms
+    this.stats.begin()
+
+    if (this.controls) this.controls.update() // for damping
+
+    sortPoints(this.mesh, this.camera) // sort points to avoid render order issues due to transparency
+
+    this.renderer.render(this.scene, this.camera) // render scene
+
+    this.uniforms.uTime.value = (time * this.guiObj.waveSpeed) / 1000 // update time
+
+    this.touch.update() // update touch texture
+
+    this.stats.end()
+    this.raf = window.requestAnimationFrame(this.draw)
+  }
+
+  /**
+   * On resize, we need to adapt our camera based
+   * on the new window width and height and the renderer
+   */
+  handleResize = () => {
+    this.width = window.innerWidth
+    this.height = window.innerHeight
+
+    // Update camera
+    this.camera.aspect = this.width / this.height
+    this.camera.updateProjectionMatrix()
+
+    this.renderer.setPixelRatio(this.dpr)
+    this.renderer.setSize(this.width, this.height)
+
+    this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
+  }
+
+  setRaycaster() {
+    this.ray = new Raycaster()
+    this.mouse = new Vector2()
+
+    // get Mouse position
+
+    if (isTouch()) {
+      window.addEventListener('touchmove', this.handleTouchMove)
+    } else {
+      window.addEventListener('mousemove', this.handleMouseMove)
+    }
+  }
+
+  handleMouseMove = (e) => {
+    const x = (e.clientX / window.innerWidth) * 2 - 1
+    const y = -(e.clientY / window.innerHeight) * 2 + 1
+    this.mouse.x = x
+    this.mouse.y = y
+
+    // from the mouse position, use a raycaster to know when the 2D plane is being touch
+
+    this.ray.setFromCamera(this.mouse, this.camera)
+    this.intersects = this.ray.intersectObjects([this.mesh])
+
+    if (this.intersects.length) {
+      const uv = new Vector2(0.5, 0.5)
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
+      this.touch.addTouch(uv)
+    }
+  }
+
+  handleTouchMove = (e) => {
+    // same as mouse move but for touch devices
+    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1
+    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1
+
+    this.mouse.x = x
+    this.mouse.y = y
+
+    this.ray.setFromCamera(this.mouse, this.camera)
+    this.intersects = this.ray.intersectObjects([this.mesh])
+
+    if (this.intersects.length) {
+      const uv = new Vector2(0.5, 0.5)
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
+      this.touch.addTouch(uv)
+    }
+  }
+}
+
+
+
+===== Filename: src/js/components/TouchTexture.js =====
+
+import { Texture } from 'three'
+
+function outSine(n) {
+  return Math.sin((n * Math.PI) / 2)
+}
+
+export default class TouchTexture {
+  constructor() {
+    this.size = 64
+    this.maxAge = 60
+    this.radius = 0.15
+    this.trail = []
+    this.canDraw = true
+
+    this.initTexture()
+  }
+
+  initTexture() {
+    // create a 2D canvas to store the information of the cursor
+    this.canvas = document.createElement('canvas')
+    this.canvas.width = this.canvas.height = this.size
+    this.ctx = this.canvas.getContext('2d')
+    this.ctx.fillStyle = 'black'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    // draw black background
+
+    // use the canvas as a texture
+    this.texture = new Texture(this.canvas)
+
+    this.canvas.id = 'touchTexture'
+    this.canvas.style.width = this.canvas.style.height = `150px`
+    this.canvas.style.position = 'fixed'
+    this.canvas.style.top = '0'
+    this.canvas.style.zIndex = '10000'
+
+    // No need to add it to the body,
+    // document.body.appendChild(this.canvas)
+  }
+
+  update() {
+    this.clear()
+    if (!this.canDraw) {
+      return false
+    }
+
+    // age points
+    this.trail.forEach((point, i) => {
+      point.age++
+      // remove old
+      if (point.age > this.maxAge) {
+        this.trail.splice(i, 1)
+      }
+    })
+
+    // draw white points
+    this.trail.forEach((point, i) => {
+      this.drawTouch(point)
+    })
+
+    // update texture
+    this.texture.needsUpdate = true
+  }
+
+  clear() {
+    // clear canvas
+    this.ctx.fillStyle = 'black'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+  }
+
+  addTouch(point) {
+    let force = 0
+    const last = this.trail[this.trail.length - 1]
+    if (last) {
+      const dx = last.x - point.x
+      const dy = last.y - point.y
+      const dd = dx * dx + dy * dy
+      force = Math.min(dd * 10000, 1)
+    }
+    this.trail.push({ x: point.x, y: point.y, age: 0, force })
+  }
+
+  drawTouch(point) {
+    // draw point based on size and age
+    const pos = {
+      x: point.x * this.size,
+      y: (1 - point.y) * this.size,
+    }
+
+    let intensity = 1
+    if (point.age < this.maxAge * 0.3) {
+      intensity = outSine(point.age / (this.maxAge * 0.3), 0, 1, 1)
+    } else {
+      intensity = outSine(1 - (point.age - this.maxAge * 0.3) / (this.maxAge * 0.7), 0, 1, 1)
+    }
+
+    intensity *= point.force
+
+    const radius = this.size * this.radius * intensity
+    const grd = this.ctx.createRadialGradient(pos.x, pos.y, radius * 0.25, pos.x, pos.y, radius)
+    // draw gradient white circles
+    grd.addColorStop(0, `rgba(255, 255, 255, 0.35)`)
+    grd.addColorStop(1, 'rgba(0, 0, 0, 0.0)')
+
+    this.ctx.beginPath()
+    this.ctx.fillStyle = grd
+    this.ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2)
+    this.ctx.fill()
+    // fill canvas
+  }
+
+  reset() {
+    // reset canvas
+    this.trail = []
+    this.canDraw = false
+    this.ctx.beginPath()
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.0)'
+    this.ctx.fill()
+    clearTimeout(this.timeout)
+    this.timeout = setTimeout(() => (this.canDraw = true), 0)
+  }
+}
+
+
+
+===== Filename: src/js/glsl/main.frag =====
+
+uniform vec3 uColor;
+uniform sampler2D uTexture;
+uniform float uNbLines;
+uniform float uNbColumns;
+uniform float uProgress;
+
+varying vec2 vTexCoords;
+
+// create a circle value in a frag shader
+float circle(vec2 uv, float border) {
+	float radius = 0.5;
+	float dist = radius - distance(uv, vec2(0.5));
+  return smoothstep(0.0, border, dist);
+}
+
+void main() {
+  // adapt point to UV texture
+
+  // We get the coordinate inside 1 particle: gl_PointCoord
+  vec2 uv = gl_PointCoord;
+  //  We invert the V because it's inverted by default when using gl_PointCoord compare to classic UVs.
+  uv.y *= -1.;
+  // we divide U by the number of particles in a line
+  // we divide V by the number of particles in a column
+  // so the final result is between 0 and 1.
+  uv /= vec2(uNbLines, uNbColumns);
+
+  // After dividing a UV you need to offset it using +
+  // we add X the position of the particule divided by the total
+  // example, if 100 particles the 10th particle will be 0.1
+  float texOffsetU = vTexCoords.x / uNbLines;
+  // same for Y
+  float texOffsetV = vTexCoords.y / uNbColumns;
+  uv += vec2(texOffsetU, texOffsetV);
+  // Finally we add 0.5 to center the value
+  uv += vec2(0.5);
+
+  vec4 texture = texture2D(uTexture, uv);
+
+  gl_FragColor.rgb = texture.rgb;
+
+  // discard pixels if too dark
+  if (gl_FragColor.r < 0.1) {
+    discard;
+  }
+
+  gl_FragColor.a = 1.;
+  // make an circle opacity to create round particles
+  gl_FragColor.a *= circle(gl_PointCoord, 0.2);
+  // apply opacity on the appear effect as well
+  gl_FragColor.a *= uProgress;
+}
+
+
+===== Filename: src/js/glsl/main.vert =====
+
+uniform float uPointSize;
+uniform float uProgress;
+uniform float uTime;
+uniform sampler2D uTouch;
+uniform float uNbLines;
+uniform float uNbColumns;
+uniform float uScaleHeightPointSize;
+uniform float uWaveFrequency;
+
+attribute vec3 initPosition;
+
+varying vec2 vTexCoords;
+
+const float scale = 1.0;
+const float waveAmplitude = 5.;
+
+void main() {
+  // shunk of code used in Three.js
+  // https://github.com/mrdoob/three.js/blob/master/src/renderers/shaders/ShaderChunk/begin_vertex.glsl.js
+  #include <begin_vertex>
+
+  // appear effect
+  transformed = initPosition + ((position - initPosition) * uProgress);
+
+  // flag effect
+  transformed.z += sin(transformed.x * uWaveFrequency + uTime) * waveAmplitude;
+  transformed.z += sin(transformed.y * uWaveFrequency + uTime) * waveAmplitude;
+
+  // get UVs of the plane
+  vec2 vUv = transformed.xy / vec2(uNbLines, uNbColumns) - vec2(-0.5, -0.5);
+
+  // get Touch canvas texture
+  float touch = texture2D(uTouch, vUv).r;
+  // apply the touch canvas texture on the Z axis of the particles
+  // (if touch texture is white, apply force, if black do nothing)
+  transformed.z += touch * 40.;
+
+  // https://github.com/mrdoob/three.js/blob/master/src/renderers/shaders/ShaderChunk/project_vertex.glsl.js
+	#include <project_vertex>
+
+  // get Texture coords for fragment shader
+  vTexCoords = position.xy;
+
+  // Final Position
+  gl_PointSize = uPointSize * ( uScaleHeightPointSize / - mvPosition.z );
+}
+
+
