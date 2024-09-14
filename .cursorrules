@@ -109,13 +109,9 @@ Additional Considerations
 
 Folder structure:
 .
+├── output.txt
 ├── package-lock.json
 ├── package.json
-├── py_scripts
-│   ├── create_sprite_sheet.py
-│   ├── extract_frames_from_video.py
-│   ├── output_video.mp4
-│   └── remove_background.py
 ├── src
 │   ├── index.html
 │   ├── js
