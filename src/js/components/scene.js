@@ -36,8 +36,7 @@ export default class MainScene {
   guiObj = {
     uProgress: 0,
     texture: 'me',
-    appearFrom: 'front',
-    pointSize: 2.5,
+    pointSize: 1.5,
   }
 
   constructor() {
@@ -115,7 +114,7 @@ export default class MainScene {
     this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
     this.camera.position.y = 0
     this.camera.position.x = 0
-    this.camera.position.z = 250
+    this.camera.position.z = 125
     this.camera.lookAt(0, 0, 0)
 
     this.scene.add(this.camera)
@@ -147,8 +146,6 @@ export default class MainScene {
     this.nbColumns = nbColumns
     this.nbLines = nbLines
 
-    const offsetTransition = 50
-
     const halfColumn = nbColumns / 2
     const halfLines = nbLines / 2
 
@@ -158,19 +155,9 @@ export default class MainScene {
       for (let y = 0; y < nbColumns; y++) {
         const point = [i, y, 0.0] // coordinates of each points
 
-        // appear from side
-        let initPoint = [
-          i / 3 - halfLines + randFloat(halfLines, halfLines + offsetTransition),
-          (y - halfColumn - randFloat(halfColumn, halfColumn + offsetTransition)) / 3,
-          randFloat(-50, 50),
-        ]
-
         // appear from Z
-        if (this.guiObj.appearFrom === 'front') {
-          initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
-        }
+        const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
 
-        // particles.push(point)
         particles.push(...point) // spread the coordinates for Float32Array
         initPositions.push(...initPoint)
       }
@@ -260,18 +247,9 @@ export default class MainScene {
         this.animateIn()
       })
 
-    gui.add(this.guiObj, 'appearFrom', { front: 'front', side: 'side' }).onChange(() => {
-      this.mesh.geometry.dispose()
-      this.mesh.material.dispose()
-      this.scene.remove(this.mesh)
-      this.setParticlesGrid()
-      this.animateIn()
-    })
-
     gui.add(this.guiObj, 'pointSize', 0, 4).onChange(() => {
       this.uniforms.uPointSize.value = this.guiObj.pointSize
     })
-
   }
   /**
    * List of events
