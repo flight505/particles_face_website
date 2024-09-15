@@ -1,10 +1,11 @@
+import os
+
 import cv2
-from rembg import remove, new_session
-from moviepy.editor import VideoFileClip
-from PIL import Image
 import numpy as np
 import onnxruntime as ort
-import os
+from moviepy.editor import VideoFileClip
+from PIL import Image
+from rembg import new_session, remove
 
 # Setup ONNX runtime with GPU support if available
 providers = (
@@ -38,6 +39,6 @@ def process_video(input_video_path, output_dir):
 
 
 # Usage: Process video and output frames
-input_video = "output_video.mp4"
-output_directory = "output_frames"
+input_video = "py_scripts/output_video.mp4"
+output_directory = "py_scripts/output_video_frames"
 process_video(input_video, output_directory)
