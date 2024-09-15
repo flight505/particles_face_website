@@ -52,7 +52,7 @@ React
   - Always throw user-friendly errors that tanStackQuery can catch and show to the user.
 
 
-<currentTask> <Sep 15 11:57:03>
+<currentTask> <Sep 15 20:33:03>
 
 Creating the 3D Face Animation Effect.
 In the provided 3JS scene, we can observe a particles, which appears on the scene (uProgress). Image is projected on to the particles. 

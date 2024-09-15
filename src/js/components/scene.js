@@ -80,6 +80,8 @@ export default class MainScene {
       this.setRaycaster()
 
       this.handleResize()
+      this.currentFrameIndex = 49; // Start with the forward-facing frame
+      this.mouse = new Vector2(0, 0); // Initialize mouse at center
 
       // start RAF
       this.events()
@@ -213,7 +215,7 @@ export default class MainScene {
         uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
 
         // Sprite sheet uniforms
-        uFrameIndex: { value: 49 }, // Start with the last frame of sprite1
+        uFrameIndex: { value: this.currentFrameIndex },
         uSpriteCols: { value: 5 },
         uSpriteRows: { value: 10 },
         uTotalFrames: { value: 100 },
@@ -224,9 +226,10 @@ export default class MainScene {
 
         // New uniform for active sprite sheet in vertex shader
         uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture }, // Initially sprite1
-        uTexOffset: { value: new Vector2(0.8, 0.9) }, // UV offset for the last frame of sprite1
-
+        uTexOffset: { value: new Vector2(0, 0) }, // We'll calculate this in updateFrameOffset
       }
+
+      this.updateFrameOffset(this.currentFrameIndex);
 
       // Create a custom ShaderMaterial for this geometry
       const customMaterial = new ShaderMaterial({
@@ -246,196 +249,50 @@ export default class MainScene {
     }
   }
 
-  animateIn() {
-    // Animate progress uniform
-    gsap.fromTo(
-      this.uniforms.uProgress,
-      {
-        value: 0,
-      },
-      {
-        value: 1,
-        duration: 2.5,
-        ease: 'Power4.easeOut',
-      }
-    )
-  }
+  updateFrameOffset(frameIndex) {
+    const framesPerSheet = 50;
+    const sheetIndex = Math.floor(frameIndex / framesPerSheet);
+    const frameInSheet = frameIndex % framesPerSheet;
 
-  /**
-   * Axes Helper
-   * https://threejs.org/docs/?q=Axesh#api/en/helpers/AxesHelper
-   */
-  setAxesHelper() {
-    const axesHelper = new AxesHelper(3)
-    this.scene.add(axesHelper)
-  }
-
-  /**
-   * Build stats to display fps
-   */
-  setStats() {
-    try {
-      this.stats = new Stats()
-      this.stats.showPanel(0)
-      document.body.appendChild(this.stats.dom)
-    } catch (error) {
-      console.error('Error setting up stats:', error)
-      // Optionally continue without stats
-      this.stats = null
-    }
-  }
-
-  setGUI() {
-    try {
-      const gui = new GUI()
-      gui.add(this.guiObj, 'uProgress', 0, 1, 0.01).onChange(() => {
-        this.uniforms.uProgress.value = this.guiObj.uProgress
-      }).name('Progress').listen()
-
-      // Ensure progress ends at 1
-      gsap.to(this.guiObj, {
-        uProgress: 1,
-        duration: 2.5,
-        ease: 'Power4.easeOut',
-        onUpdate: () => {
-          this.uniforms.uProgress.value = this.guiObj.uProgress
-        }
-      })
-      // Removed texture selection GUI as frame index now controls sprite sheets
-      gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
-        this.uniforms.uPointSize.value = this.guiObj.pointSize
-      })
-    } catch (error) {
-      console.error('Error setting up GUI:', error)
-      // Optionally continue without GUI
-    }
-  }
-
-  /**
-   * List of events
-   */
-  events() {
-    window.addEventListener('resize', this.handleResize, { passive: true })
-    this.draw(0)
-  }
-
-  // EVENTS
-
-  /**
-   * Request animation frame function
-   * This function is called 60/time per seconds with no performance issue
-   * Everything that happens in the scene is drawn here
-   * @param {Number} time
-   */
-  draw = (time) => {
-    if (this.stats) this.stats.begin()
-
-    if (this.controls) this.controls.update() // for damping
-
-    sortPoints(this.mesh, this.camera) // sort points to avoid render order issues due to transparency
-
-    // Update uTime
-    this.uniforms.uTime.value = time * 0.001 // Convert to seconds
-
-    this.renderer.render(this.scene, this.camera) // render scene
-
-    this.touch.update() // update touch texture
-
-    if (this.stats) this.stats.end()
-    this.raf = window.requestAnimationFrame(this.draw)
-  }
-
-  /**
-   * On resize, we need to adapt our camera based
-   * on the new window width and height and the renderer
-   */
-  handleResize = () => {
-    this.width = window.innerWidth
-    this.height = window.innerHeight
-
-    // Update camera
-    this.camera.aspect = this.width / this.height
-    this.camera.updateProjectionMatrix()
-
-    this.renderer.setPixelRatio(this.dpr)
-    this.renderer.setSize(this.width, this.height)
-
-    this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
-  }
-
-  setRaycaster() {
-    this.ray = new Raycaster()
-    this.mouse = new Vector2()
-
-    // get Mouse position
-
-    if (isTouch()) {
-      window.addEventListener('touchmove', this.handleTouchMove)
+    let actualFrame;
+    if (sheetIndex < 1) {
+      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
+      actualFrame = 49 - frameInSheet; // Reverse order for sprite1
     } else {
-      window.addEventListener('mousemove', this.handleMouseMove)
+      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
+      actualFrame = frameInSheet;
     }
+
+    const frameCol = actualFrame % this.uniforms.uSpriteCols.value;
+    const frameRow = Math.floor(actualFrame / this.uniforms.uSpriteCols.value);
+
+    const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+    const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+
+    this.uniforms.uTexOffset.value.set(uOffset, vOffset);
+
+    console.log(`Frame: ${frameIndex}, Sheet: ${sheetIndex}, Actual Frame: ${actualFrame}, Offset: (${uOffset}, ${vOffset})`);
   }
 
   handleMouseMove = (e) => {
     const x = (e.clientX / window.innerWidth) * 2 - 1;
     const y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+    const deltaX = x - this.mouse.x;
+    const frameChangeSpeed = 100.0;
+
+    this.currentFrameIndex += deltaX * frameChangeSpeed;
+    this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, this.uniforms.uTotalFrames.value - 1));
+
     this.mouse.x = x;
     this.mouse.y = y;
 
-    // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.clientX / window.innerWidth;
-
-    // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
-
-    // Smoothly interpolate the frame index using GSAP for smoother transitions
     gsap.to(this.uniforms.uFrameIndex, {
-      value: frameIndex,
-      duration: 0.3, // Adjust duration as needed
+      value: this.currentFrameIndex,
+      duration: 0.3,
       ease: 'power2.out',
       onUpdate: () => {
-        // Determine active sprite sheet based on frameIndex
-        const framesPerSheet = 50.0; // As each sheet has 50 frames
-        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
-
-        // if (sheetIndex < 1) {
-        //   this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
-        // } else {
-        //   this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
-        // }
-
-        // // Calculate frame within the active sprite sheet
-        // const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
-
-        // // Calculate column and row for current frame
-        // const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
-        // const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
-
-        // // Calculate UV offset for the current frame
-        // const uOffset = frameCol / this.uniforms.uSpriteCols.value;
-        // const vOffset = frameRow / this.uniforms.uSpriteRows.value;
-
-        // this.uniforms.uTexOffset.value.set(uOffset, vOffset);
-
-        if (sheetIndex < 1) {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
-          // For sprite1, we need to reverse the frame order
-          const reversedFrameInSheet = 49 - (Math.floor(this.uniforms.uFrameIndex.value) % framesPerSheet);
-          const frameCol = reversedFrameInSheet % this.uniforms.uSpriteCols.value;
-          const frameRow = Math.floor(reversedFrameInSheet / this.uniforms.uSpriteCols.value);
-          const uOffset = frameCol / this.uniforms.uSpriteCols.value;
-          const vOffset = frameRow / this.uniforms.uSpriteRows.value;
-          this.uniforms.uTexOffset.value.set(uOffset, vOffset);
-        } else {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
-          // For sprite2, we can use the normal frame order
-          const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
-          const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
-          const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
-          const uOffset = frameCol / this.uniforms.uSpriteCols.value;
-          const vOffset = frameRow / this.uniforms.uSpriteRows.value;
-          this.uniforms.uTexOffset.value.set(uOffset, vOffset);
-        }
+        this.updateFrameOffset(this.uniforms.uFrameIndex.value);
       },
     });
 
@@ -451,51 +308,137 @@ export default class MainScene {
     }
   }
 
-  handleTouchMove = (e) => {
-    // Same as mouse move but for touch devices
-    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-
-    this.mouse.x = x;
-    this.mouse.y = y;
-
-    // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.touches[0].clientX / window.innerWidth;
-
-    // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
-
-    // Smoothly interpolate the frame index using GSAP
-    gsap.to(this.uniforms.uFrameIndex, {
-      value: frameIndex,
-      duration: 0.3, // Adjust duration as needed
-      ease: 'power2.out',
-      onUpdate: () => {
-        // Determine active sprite sheet based on frameIndex
-        const framesPerSheet = 50.0; // As each sheet has 50 frames
-        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
-
-        if (sheetIndex < 1) {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
-        } else {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
-        }
-
-        // Calculate frame within the active sprite sheet
-        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
-
-        // Calculate column and row for current frame
-        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
-        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
-
-        // Calculate UV offset for the current frame
-        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
-        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
-
-        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
+  animateIn() {
+    // Animate progress uniform
+    gsap.fromTo(
+      this.uniforms.uProgress,
+      {
+        value: 0,
       },
-    });
+      {
+        value: 1,
+        duration: 2.5,
+        ease: 'Power4.easeOut',
+      }
+    );
+  }
 
+  /**
+   * Axes Helper
+   * https://threejs.org/docs/?q=Axesh#api/en/helpers/AxesHelper
+   */
+  setAxesHelper() {
+    const axesHelper = new AxesHelper(3);
+    this.scene.add(axesHelper);
+  }
+
+  /**
+   * Build stats to display fps
+   */
+  setStats() {
+    try {
+      this.stats = new Stats();
+      this.stats.showPanel(0);
+      document.body.appendChild(this.stats.dom);
+    } catch (error) {
+      console.error('Error setting up stats:', error);
+      // Optionally continue without stats
+      this.stats = null;
+    }
+  }
+
+  setGUI() {
+    try {
+      const gui = new GUI();
+      gui.add(this.guiObj, 'uProgress', 0, 1, 0.01).onChange(() => {
+        this.uniforms.uProgress.value = this.guiObj.uProgress;
+      }).name('Progress').listen();
+
+      // Ensure progress ends at 1
+      gsap.to(this.guiObj, {
+        uProgress: 1,
+        duration: 2.5,
+        ease: 'Power4.easeOut',
+        onUpdate: () => {
+          this.uniforms.uProgress.value = this.guiObj.uProgress;
+        }
+      });
+      // Removed texture selection GUI as frame index now controls sprite sheets
+      gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
+        this.uniforms.uPointSize.value = this.guiObj.pointSize;
+      });
+    } catch (error) {
+      console.error('Error setting up GUI:', error);
+      // Optionally continue without GUI
+    }
+  }
+
+  /**
+   * List of events
+   */
+  events() {
+    window.addEventListener('resize', this.handleResize, { passive: true });
+    this.draw(0);
+  }
+
+  // EVENTS
+
+  /**
+   * Request animation frame function
+   * This function is called 60/time per seconds with no performance issue
+   * Everything that happens in the scene is drawn here
+   * @param {Number} time
+   */
+  draw = (time) => {
+    if (this.stats) this.stats.begin();
+
+    if (this.controls) this.controls.update(); // for damping
+
+    sortPoints(this.mesh, this.camera); // sort points to avoid render order issues due to transparency
+
+    // Update uTime
+    this.uniforms.uTime.value = time * 0.001; // Convert to seconds
+
+    this.renderer.render(this.scene, this.camera); // render scene
+
+    this.touch.update(); // update touch texture
+
+    if (this.stats) this.stats.end();
+    this.raf = window.requestAnimationFrame(this.draw);
+  }
+
+  /**
+   * On resize, we need to adapt our camera based
+   * on the new window width and height and the renderer
+   */
+  handleResize = () => {
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+
+    // Update camera
+    this.camera.aspect = this.width / this.height;
+    this.camera.updateProjectionMatrix();
+
+    this.renderer.setPixelRatio(this.dpr);
+    this.renderer.setSize(this.width, this.height);
+
+    this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2;
+  }
+
+  setRaycaster() {
+    this.ray = new Raycaster();
+    this.mouse = new Vector2();
+
+    // get Mouse position
+
+    if (isTouch()) {
+      window.addEventListener('touchmove', this.handleTouchMove);
+    } else {
+      window.addEventListener('mousemove', this.handleMouseMove);
+    }
+  }
+
+  handleTouchMove = (e) => {
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
     this.ray.setFromCamera(this.mouse, this.camera);
     this.intersects = this.ray.intersectObjects([this.mesh]);

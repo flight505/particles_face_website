@@ -36,27 +36,23 @@ attribute vec3 initPosition;
 varying vec2 vTexCoords;
 
 void main() {
-  // Initialize Transformed Position with Z-Axis Displacement Based on uProgress
-  vec3 transformed = vec3(position.x, position.y, initPosition.z * (1.0 - uProgress));
+  // Keep the particle positions static
+  vec3 transformed = position;
 
-  // Calculate Normalized UVs Based on Particle Position Within the Grid
-  // Mapping X from [-halfLines, +halfLines] to [0,1]
-  // Mapping Y from [-halfColumns, +halfColumns] to [0,1]
+  // Calculate normalized UVs based on particle position within the grid
   float normalizedX = (position.x + (uNbLines / 2.0)) / float(uNbLines);
   float normalizedY = (position.y + (uNbColumns / 2.0)) / float(uNbColumns);
   vTexCoords = vec2(normalizedX, normalizedY);
 
-  // Sample the Sprite Sheet to Get Displacement Data
+  // Use the sprite sheet only for displacement, not for position
   vec4 spriteData = texture2D(uSpriteSheet, uTexOffset + vTexCoords * vec2(1.0 / uSpriteCols, 1.0 / uSpriteRows));
-
-  // Use the Red Channel from Sprite Data to Determine Z-Axis Displacement
-  float displacement = spriteData.r * uDisplacementScale;
+  float displacement = spriteData.r * uDisplacementScale * uProgress;
   transformed.z += displacement;
 
-  // Project the Transformed Vertex Position
+  // Project the transformed vertex position
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
-  // Adjust Point Size Based on Z-Axis for Depth Perception
+  // Adjust point size based on Z-axis for depth perception
   gl_PointSize = uPointSize * (uScaleHeightPointSize / -mvPosition.z);
 }
