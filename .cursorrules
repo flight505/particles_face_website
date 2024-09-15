@@ -52,7 +52,7 @@ React
   - Always throw user-friendly errors that tanStackQuery can catch and show to the user.
 
 
-<currentTask> <Sep 15 20:33:03>
+<currentTask> <Sep 15 22:35:00>
 
 Creating the 3D Face Animation Effect.
 In the provided 3JS scene, we can observe a particles, which appears on the scene (uProgress). Image is projected on to the particles. 
@@ -66,9 +66,9 @@ Scene Setup:
   - Particle System: Particles are displayed on the scene with a U-progress animation initiating the scene.
 Assets:
   - Sprite Sheets: sprite1.jpg (looking left) and sprite2.jpg (looking right) are used, both grayscale.
-  - Displacement Map: Black and white colors are used to displace particles along the Z-axis based on their brightness.
+  - Use Sprite Sheets as Displacement Map: Black and white colors are used to displace particles along the Z-axis based on their brightness.
 Interactivity:
-  - Mouse Interaction: Mouse movements affect the direction the face is looking at, but sprites are being scrolled or moving along the X-axis unexpectedly. Not the effect we want.
+  - Mouse Interaction: Mouse movements affect the direction the face is looking at. 
 Visual Design:
   - Color Scheme: Maintaining a black and white aesthetic.
   - Effects: Planning to add bloom effects and control the intensity of highlights.
@@ -77,15 +77,9 @@ Development Environment:
   - Dependencies: Three.js, GSAP, lil-gui, and others are included as per package.json.
 
 Potential Areas to Address:
-
-Interactivity Issues:
-  - Sprite Skipping/Misalignment: This could be related to how UV mapping or sprite selection is handled based on mouse movements. Ensuring that the correct sprite is selected and mapped without abrupt changes is crucial.
-Displacement Mapping:
-  - Z-axis Manipulation: Ensuring that the displacement map accurately affects the particles Z-axis positions based on brightness.
-Performance Optimization:
-  - While not an immediate concern, ensuring that the particle density and displacement map resolution are balanced for smooth performance is important.
-Visual Effects:
-  - Bloom Effect: Integrating bloom without affecting performance or the black-and-white aesthetic adversely.
+  - Displacement Mapping:
+    - Z-axis Manipulation: Ensuring that the displacement map accurately affects the particles Z-axis positions based on brightness.
+  - Visual Effects, add Bloom Effect, Integrating bloom without affecting performance or the black-and-white aesthetic adversely.
 
 Folder structure:
 .
