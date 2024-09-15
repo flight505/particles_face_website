@@ -213,7 +213,7 @@ export default class MainScene {
         uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
 
         // Sprite sheet uniforms
-        uFrameIndex: { value: 0 },
+        uFrameIndex: { value: 49 }, // Start with the last frame of sprite1
         uSpriteCols: { value: 5 },
         uSpriteRows: { value: 10 },
         uTotalFrames: { value: 100 },
@@ -224,6 +224,8 @@ export default class MainScene {
 
         // New uniform for active sprite sheet in vertex shader
         uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture }, // Initially sprite1
+        uTexOffset: { value: new Vector2(0.8, 0.9) }, // UV offset for the last frame of sprite1
+
       }
 
       // Create a custom ShaderMaterial for this geometry
@@ -396,24 +398,44 @@ export default class MainScene {
         const framesPerSheet = 50.0; // As each sheet has 50 frames
         const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
 
+        // if (sheetIndex < 1) {
+        //   this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
+        // } else {
+        //   this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
+        // }
+
+        // // Calculate frame within the active sprite sheet
+        // const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
+
+        // // Calculate column and row for current frame
+        // const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
+        // const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
+
+        // // Calculate UV offset for the current frame
+        // const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+        // const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+
+        // this.uniforms.uTexOffset.value.set(uOffset, vOffset);
+
         if (sheetIndex < 1) {
           this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
+          // For sprite1, we need to reverse the frame order
+          const reversedFrameInSheet = 49 - (Math.floor(this.uniforms.uFrameIndex.value) % framesPerSheet);
+          const frameCol = reversedFrameInSheet % this.uniforms.uSpriteCols.value;
+          const frameRow = Math.floor(reversedFrameInSheet / this.uniforms.uSpriteCols.value);
+          const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+          const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+          this.uniforms.uTexOffset.value.set(uOffset, vOffset);
         } else {
           this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
+          // For sprite2, we can use the normal frame order
+          const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
+          const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
+          const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
+          const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+          const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+          this.uniforms.uTexOffset.value.set(uOffset, vOffset);
         }
-
-        // Calculate frame within the active sprite sheet
-        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
-
-        // Calculate column and row for current frame
-        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
-        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
-
-        // Calculate UV offset for the current frame
-        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
-        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
-
-        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
       },
     });
 
