@@ -52,6 +52,10 @@ export default class MainScene {
     // Create touch texture for mouse particles animation
     this.touch = new TouchTexture()
 
+    this.currentFrameIndex = 49; // Start with the forward-facing frame
+    this.mouse = new Vector2(0, 0); // Initialize mouse at center
+
+
     this.init().catch(error => {
       console.error('Initialization failed:', error)
       // Optionally, display an error message to the user
@@ -76,18 +80,15 @@ export default class MainScene {
       this.setCamera()
       this.setControls()
       this.setParticlesGrid()
-      // this.setAxesHelper()
       this.setRaycaster()
 
       this.handleResize()
-      this.currentFrameIndex = 49; // Start with the forward-facing frame
-      this.mouse = new Vector2(0, 0); // Initialize mouse at center
 
       // start RAF
       this.events()
 
       this.animateIn()
-      this.uniforms.uProgress.value = 1.0
+      // this.uniforms.uProgress.value = 1.0
     } catch (error) {
       console.error('Error during initialization:', error)
       throw error // Re-throw to be caught in the constructor
@@ -378,6 +379,7 @@ export default class MainScene {
    */
   events() {
     window.addEventListener('resize', this.handleResize, { passive: true });
+    window.addEventListener('mousemove', this.handleMouseMove, { passive: true });
     this.draw(0);
   }
 
@@ -393,8 +395,6 @@ export default class MainScene {
     if (this.stats) this.stats.begin();
 
     if (this.controls) this.controls.update(); // for damping
-
-    sortPoints(this.mesh, this.camera); // sort points to avoid render order issues due to transparency
 
     // Update uTime
     this.uniforms.uTime.value = time * 0.001; // Convert to seconds
