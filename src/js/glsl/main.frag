@@ -1,4 +1,4 @@
-// Fragment Shader
+// Fragment Shader with Texture Sampling and Blending
 precision mediump float;
 
 uniform sampler2D uSprite1;
@@ -7,11 +7,10 @@ uniform float uFrameIndex;
 uniform float uSpriteCols;
 uniform float uSpriteRows;
 uniform float uProgress;
-uniform float uBrightness; // New uniform for controlling brightness
 
 varying vec2 vTexCoords;
 
-// create a circle value in a frag shader
+// Function to create a circular opacity mask
 float circle(vec2 uv, float border) {
   float radius = 0.5;
   float dist = radius - distance(uv, vec2(0.5));
@@ -28,9 +27,9 @@ void main() {
 
   bool useSprite1 = sheetIndex < 1.0;
 
-  // Calculate frame number within the current and next sprite sheet
+  // Calculate current and next frames within the sprite sheet
   float currentFrame = frameInSheet;
-  float nextFrame = frameInSheet + 1.0;
+  float nextFrame = currentFrame + 1.0;
 
   // Clamp nextFrame to avoid overflow
   if (nextFrame >= framesPerSheet) {
@@ -45,14 +44,16 @@ void main() {
   float nextFrameCol = mod(nextFrame, uSpriteCols);
   float nextFrameRow = floor(nextFrame / uSpriteCols);
 
-  // Calculate UV offset for current frame
-  vec2 frameUVOffset = vec2(frameCol, frameRow) / vec2(uSpriteCols, uSpriteRows);
+  // Define frame dimensions and padding in UV space
+  float frameWidth = 1.0 / uSpriteCols;
+  float frameHeight = 1.0 / uSpriteRows;
 
-  // Calculate UV offset for next frame
-  vec2 nextFrameUVOffset = vec2(nextFrameCol, nextFrameRow) / vec2(uSpriteCols, uSpriteRows);
+  // Calculate UV offset for current and next frames
+  vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
+  vec2 nextFrameUVOffset = vec2(nextFrameCol * frameWidth, nextFrameRow * frameHeight);
 
   // Calculate UV within the frame
-  vec2 uvWithinFrame = gl_PointCoord / vec2(uSpriteCols, uSpriteRows);
+  vec2 uvWithinFrame = vTexCoords * vec2(frameWidth, frameHeight);
 
   // Final UV coordinates for current and next frames
   vec2 finalUVCurrent = frameUVOffset + uvWithinFrame;
@@ -68,17 +69,14 @@ void main() {
   // Blend between current and next frame
   vec4 blendedColor = mix(colorCurrent, colorNext, interp);
 
-  // Apply brightness adjustment
-  blendedColor.rgb *= uBrightness;
-
   // Apply the texture color
-  gl_FragColor = blendedColor;
+  gl_FragColor.rgb = blendedColor.rgb;
 
-  // Discard pixels if too dark (adjusted threshold based on brightness)
-  if (gl_FragColor.r < 0.1 * uBrightness) {
+  // Discard pixels if too dark
+  if (gl_FragColor.r < 0.1) {
     discard;
   }
 
   // Apply circle opacity and progress
-  gl_FragColor.a *= circle(gl_PointCoord, 0.2) * uProgress;
+  gl_FragColor.a = circle(gl_PointCoord, 0.2) * uProgress;
 }

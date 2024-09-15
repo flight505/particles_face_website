@@ -12,84 +12,88 @@ import {
   ShaderMaterial,
   Raycaster,
   Vector2,
+  LinearFilter,
+  ClampToEdgeWrapping,
 } from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import Stats from 'stats-js';
-import LoaderManager from '@/js/managers/LoaderManager';
-import GUI from 'lil-gui';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import Stats from 'stats-js'
+import LoaderManager from '@/js/managers/LoaderManager'
+import GUI from 'lil-gui'
 
-import vertexShader from '@/js/glsl/main.vert';
-import fragmentShader from '@/js/glsl/main.frag';
-import { randFloat } from 'three/src/math/MathUtils';
-import gsap from 'gsap';
-import TouchTexture from './TouchTexture';
-import { sortPoints } from '@/js/utils/three';
-import { isTouch } from '@/js/utils/isTouch';
+import vertexShader from '@/js/glsl/main.vert'
+import fragmentShader from '@/js/glsl/main.frag'
+import { randFloat } from 'three/src/math/MathUtils'
+import gsap from 'gsap'
+import TouchTexture from './TouchTexture'
+import { sortPoints } from '@/js/utils/three'
+import { isTouch } from '@/js/utils/isTouch'
 
 export default class MainScene {
-  canvas;
-  renderer;
-  scene;
-  camera;
-  controls;
-  stats;
-  width;
-  height;
+  canvas
+  renderer
+  scene
+  camera
+  controls
+  stats
+  width
+  height
   guiObj = {
     uProgress: 0,
     pointSize: 1.5,
-  };
+  }
+
 
   constructor() {
-    this.canvas = document.querySelector('.scene');
+    this.canvas = document.querySelector('.scene')
     if (!this.canvas) {
-      throw new Error('Canvas element with class "scene" not found');
+      throw new Error('Canvas element with class "scene" not found')
     }
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
+    this.width = window.innerWidth
+    this.height = window.innerHeight
 
     // Create touch texture for mouse particles animation
-    this.touch = new TouchTexture();
+    this.touch = new TouchTexture()
 
     this.init().catch(error => {
-      console.error('Initialization failed:', error);
+      console.error('Initialization failed:', error)
       // Optionally, display an error message to the user
-    });
+    })
   }
 
   init = async () => {
     try {
       // Preload assets before initiating the scene
       const assets = [
-        { name: 'me', texture: './img/me.png' },
+        // { name: 'me', texture: './img/me.png' },
         { name: 'sprite1', texture: './img/sprite1.jpg' },
         { name: 'sprite2', texture: './img/sprite2.jpg' },
-      ];
+      ]
 
-      await LoaderManager.load(assets);
-      console.log('Loaded Textures:', LoaderManager.assets);
+      await LoaderManager.load(assets)
+      console.log('Loaded Textures:', LoaderManager.assets)
 
-      this.setStats();
-      this.setGUI();
-      this.setScene();
-      this.setRender();
-      this.setCamera();
-      this.setControls();
-      this.setParticlesGrid();
+      this.setStats()
+      this.setGUI()
+      this.setScene()
+      this.setRender()
+      this.setCamera()
+      this.setControls()
+      this.setParticlesGrid()
       // this.setAxesHelper()
-      this.setRaycaster();
+      this.setRaycaster()
 
-      this.handleResize();
+      this.handleResize()
 
       // start RAF
-      this.events();
+      this.events()
 
-      this.animateIn();
+      this.animateIn()
+      this.uniforms.uProgress.value = 1.0
     } catch (error) {
-      console.error('Error during initialization:', error);
-      throw error; // Re-throw to be caught in the constructor
+      console.error('Error during initialization:', error)
+      throw error // Re-throw to be caught in the constructor
     }
-  };
+  }
 
   /**
    * Our Webgl renderer, an object that will draw everything in our canvas
@@ -100,12 +104,12 @@ export default class MainScene {
       this.renderer = new WebGLRenderer({
         canvas: this.canvas,
         antialias: true,
-      });
-      this.renderer.setSize(this.width, this.height);
-      this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+      })
+      this.renderer.setSize(this.width, this.height)
+      this.renderer.setPixelRatio(window.devicePixelRatio || 1)
     } catch (error) {
-      console.error('Error setting up WebGL renderer:', error);
-      throw error;
+      console.error('Error setting up WebGL renderer:', error)
+      throw error
     }
   }
 
@@ -114,7 +118,7 @@ export default class MainScene {
    * https://threejs.org/docs/?q=scene#api/en/scenes/Scene
    */
   setScene() {
-    this.scene = new Scene();
+    this.scene = new Scene()
     // this.scene.background = new Color(0xffffff)
   }
 
@@ -126,17 +130,17 @@ export default class MainScene {
    * https://threejs.org/docs/?q=pers#api/en/cameras/PerspectiveCamera
    */
   setCamera() {
-    const aspectRatio = this.width / this.height;
-    const fieldOfView = 60;
-    const nearPlane = 0.1;
-    const farPlane = 10000;
+    const aspectRatio = this.width / this.height
+    const fieldOfView = 60
+    const nearPlane = 0.1
+    const farPlane = 10000
 
     // set classic camera
-    this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane);
-    this.camera.position.set(0, 0, 125);
-    this.camera.lookAt(0, 0, 0);
+    this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
+    this.camera.position.set(0, 0, 125)
+    this.camera.lookAt(0, 0, 0)
 
-    this.scene.add(this.camera);
+    this.scene.add(this.camera)
   }
 
   /**
@@ -145,16 +149,16 @@ export default class MainScene {
    */
   setControls() {
     try {
-      this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-      this.controls.enableDamping = true;
-      this.controls.enableRotate = false; // Disable rotation to prevent interference
-      this.controls.enableZoom = false;   // Disable zoom if not needed
+      this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+      this.controls.enableDamping = true
+      this.controls.enableRotate = true // Disable rotation to prevent interference
+      this.controls.enableZoom = true   // Disable zoom if not needed
       // this.controls.autoRotate = true
       // this.controls.dampingFactor = 0.04
     } catch (error) {
-      console.error('Error setting up OrbitControls:', error);
+      console.error('Error setting up OrbitControls:', error)
       // Optionally, you might want to continue without controls
-      this.controls = null;
+      this.controls = null
     }
   }
 
@@ -163,65 +167,65 @@ export default class MainScene {
       // Create a grid of particles
 
       // create a geometry
-      const geometry = new BufferGeometry();
+      const geometry = new BufferGeometry()
 
-      const particles = [];
-      const initPositions = [];
-      const multiplier = 18;
-      const nbColumns = 9 * multiplier;
-      const nbLines = 16 * multiplier;
+      const particles = []
+      const initPositions = []
+      const multiplier = 16
+      const nbColumns = 9 * multiplier
+      const nbLines = 16 * multiplier
 
-      this.nbColumns = nbColumns;
-      this.nbLines = nbLines;
+      this.nbColumns = nbColumns
+      this.nbLines = nbLines
 
-      const halfColumn = nbColumns / 2;
-      const halfLines = nbLines / 2;
+      const halfColumn = nbColumns / 2
+      const halfLines = nbLines / 2
 
       // for each line / column add a "particle" to the array
 
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i, y, 0.0]; // coordinates of each point
+          const point = [i, y, 0.0] // coordinates of each point
 
           // appear from Z
-          const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)];
+          const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
 
-          particles.push(...point); // spread the coordinates for Float32Array
-          initPositions.push(...initPoint);
+          particles.push(...point) // spread the coordinates for Float32Array
+          initPositions.push(...initPoint)
         }
       }
 
-      const vertices = new Float32Array(particles);
-      const initPositionsFloat = new Float32Array(initPositions);
+      const vertices = new Float32Array(particles)
+      const initPositionsFloat = new Float32Array(initPositions)
 
       // Add the particles to the array as "position" and "initPosition"
       // itemSize = 3 because there are 3 values (components) per vertex
-      geometry.setAttribute('position', new BufferAttribute(vertices, 3));
-      geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3));
+      geometry.setAttribute('position', new BufferAttribute(vertices, 3))
+      geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
 
-      geometry.center();
+      geometry.center()
       // const material = new MeshBasicMaterial({ color: 0xff0000 })
 
-      this.dpr = 2;
+      this.dpr = 2 // device pixel ratio
       this.uniforms = {
         uPointSize: { value: this.guiObj.pointSize },
         uNbLines: { value: nbLines },
         uNbColumns: { value: nbColumns },
         uProgress: { value: this.guiObj.uProgress },
-        uTime: { value: 0 },
+        uTime: { value: 0.0 },
         uTouch: { value: this.touch.texture },
-        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2 },
+        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
 
-        // New uniforms for sprite sheets
-        uFrameIndex: { value: 0.0 }, // Current frame index
-        uSpriteCols: { value: 5.0 }, // Columns per sprite sheet
-        uSpriteRows: { value: 10.0 }, // Rows per sprite sheet
-        uTotalFrames: { value: 100.0 }, // Total frames (sprite1 + sprite2)
+        // Sprite sheet uniforms
+        uFrameIndex: { value: 0.0 }, // float
+        uSpriteCols: { value: 5.0 }, // float
+        uSpriteRows: { value: 10.0 }, // float
+        uTotalFrames: { value: 100.0 }, // float
 
         // Sprite sheet textures
-        uSprite1: { value: LoaderManager.assets['sprite1'].texture },
-        uSprite2: { value: LoaderManager.assets['sprite2'].texture },
-      };
+        uSprite1: { value: LoaderManager.assets['sprite1'].texture }, // sampler2D
+        uSprite2: { value: LoaderManager.assets['sprite2'].texture }, // sampler2D
+      }
 
       // create a custom shaderMaterial for this geometry
       const customMaterial = new ShaderMaterial({
@@ -231,13 +235,13 @@ export default class MainScene {
         transparent: true,
         depthTest: false,
         depthWrite: false,
-      });
-      this.mesh = new Points(geometry, customMaterial);
+      })
+      this.mesh = new Points(geometry, customMaterial)
 
-      this.scene.add(this.mesh);
+      this.scene.add(this.mesh)
     } catch (error) {
-      console.error('Error setting up particle grid:', error);
-      throw error;
+      console.error('Error setting up particle grid:', error)
+      throw error
     }
   }
 
@@ -253,7 +257,7 @@ export default class MainScene {
         duration: 2.5,
         ease: 'Power4.easeOut',
       }
-    );
+    )
   }
 
   /**
@@ -261,8 +265,8 @@ export default class MainScene {
    * https://threejs.org/docs/?q=Axesh#api/en/helpers/AxesHelper
    */
   setAxesHelper() {
-    const axesHelper = new AxesHelper(3);
-    this.scene.add(axesHelper);
+    const axesHelper = new AxesHelper(3)
+    this.scene.add(axesHelper)
   }
 
   /**
@@ -270,28 +274,28 @@ export default class MainScene {
    */
   setStats() {
     try {
-      this.stats = new Stats();
-      this.stats.showPanel(0);
-      document.body.appendChild(this.stats.dom);
+      this.stats = new Stats()
+      this.stats.showPanel(0)
+      document.body.appendChild(this.stats.dom)
     } catch (error) {
-      console.error('Error setting up stats:', error);
+      console.error('Error setting up stats:', error)
       // Optionally continue without stats
-      this.stats = null;
+      this.stats = null
     }
   }
 
   setGUI() {
     try {
-      const gui = new GUI();
+      const gui = new GUI()
       gui.add(this.guiObj, 'uProgress', 0, 1).onChange(() => {
-        this.uniforms.uProgress.value = this.guiObj.uProgress;
-      });
+        this.uniforms.uProgress.value = this.guiObj.uProgress
+      })
       // Removed texture selection GUI as frame index now controls sprite sheets
-      gui.add(this.guiObj, 'pointSize', 0, 4).onChange(() => {
-        this.uniforms.uPointSize.value = this.guiObj.pointSize;
-      });
+      gui.add(this.guiObj, 'pointSize', 0, 100).onChange(() => {
+        this.uniforms.uPointSize.value = this.guiObj.pointSize
+      })
     } catch (error) {
-      console.error('Error setting up GUI:', error);
+      console.error('Error setting up GUI:', error)
       // Optionally continue without GUI
     }
   }
@@ -299,8 +303,8 @@ export default class MainScene {
    * List of events
    */
   events() {
-    window.addEventListener('resize', this.handleResize, { passive: true });
-    this.draw(0);
+    window.addEventListener('resize', this.handleResize, { passive: true })
+    this.draw(0)
   }
 
   // EVENTS
@@ -312,109 +316,109 @@ export default class MainScene {
    * @param {Number} now
    */
   draw = (time) => {
-    if (this.stats) this.stats.begin();
+    if (this.stats) this.stats.begin()
 
-    if (this.controls) this.controls.update(); // for damping
+    if (this.controls) this.controls.update() // for damping
 
-    sortPoints(this.mesh, this.camera); // sort points to avoid render order issues due to transparency
+    sortPoints(this.mesh, this.camera) // sort points to avoid render order issues due to transparency
 
     // Update uTime
-    this.uniforms.uTime.value = time * 0.001; // Convert to seconds
+    this.uniforms.uTime.value = time * 0.001 // Convert to seconds
 
-    this.renderer.render(this.scene, this.camera); // render scene
+    this.renderer.render(this.scene, this.camera) // render scene
 
-    this.touch.update(); // update touch texture
+    this.touch.update() // update touch texture
 
-    if (this.stats) this.stats.end();
-    this.raf = window.requestAnimationFrame(this.draw);
-  };
+    if (this.stats) this.stats.end()
+    this.raf = window.requestAnimationFrame(this.draw)
+  }
 
   /**
    * On resize, we need to adapt our camera based
    * on the new window width and height and the renderer
    */
   handleResize = () => {
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
+    this.width = window.innerWidth
+    this.height = window.innerHeight
 
     // Update camera
-    this.camera.aspect = this.width / this.height;
-    this.camera.updateProjectionMatrix();
+    this.camera.aspect = this.width / this.height
+    this.camera.updateProjectionMatrix()
 
-    this.renderer.setPixelRatio(this.dpr);
-    this.renderer.setSize(this.width, this.height);
+    this.renderer.setPixelRatio(this.dpr)
+    this.renderer.setSize(this.width, this.height)
 
-    this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2;
-  };
+    this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
+  }
 
   setRaycaster() {
-    this.ray = new Raycaster();
-    this.mouse = new Vector2();
+    this.ray = new Raycaster()
+    this.mouse = new Vector2()
 
     // get Mouse position
 
     if (isTouch()) {
-      window.addEventListener('touchmove', this.handleTouchMove);
+      window.addEventListener('touchmove', this.handleTouchMove)
     } else {
-      window.addEventListener('mousemove', this.handleMouseMove);
+      window.addEventListener('mousemove', this.handleMouseMove)
     }
   }
 
   handleMouseMove = (e) => {
-    const x = (e.clientX / window.innerWidth) * 2 - 1;
-    const y = -(e.clientY / window.innerHeight) * 2 + 1;
-    this.mouse.x = x;
-    this.mouse.y = y;
+    const x = (e.clientX / window.innerWidth) * 2 - 1
+    const y = -(e.clientY / window.innerHeight) * 2 + 1
+    this.mouse.x = x
+    this.mouse.y = y
 
     // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.clientX / window.innerWidth;
+    const normalizedX = e.clientX / window.innerWidth
 
     // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
 
     // Update the frame index uniform
-    this.uniforms.uFrameIndex.value = frameIndex;
+    this.uniforms.uFrameIndex.value = frameIndex
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera);
-    this.intersects = this.ray.intersectObjects([this.mesh]);
+    this.ray.setFromCamera(this.mouse, this.camera)
+    this.intersects = this.ray.intersectObjects([this.mesh])
 
     if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5);
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
-      this.touch.addTouch(uv);
+      const uv = new Vector2(0.5, 0.5)
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
+      this.touch.addTouch(uv)
     }
-  };
+  }
 
   handleTouchMove = (e) => {
     // same as mouse move but for touch devices
-    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1
+    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1
 
-    this.mouse.x = x;
-    this.mouse.y = y;
+    this.mouse.x = x
+    this.mouse.y = y
 
     // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.touches[0].clientX / window.innerWidth;
+    const normalizedX = e.touches[0].clientX / window.innerWidth
 
     // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
 
     // Update the frame index uniform
-    this.uniforms.uFrameIndex.value = frameIndex;
+    this.uniforms.uFrameIndex.value = frameIndex
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera);
-    this.intersects = this.ray.intersectObjects([this.mesh]);
+    this.ray.setFromCamera(this.mouse, this.camera)
+    this.intersects = this.ray.intersectObjects([this.mesh])
 
     if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5);
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
-      this.touch.addTouch(uv);
+      const uv = new Vector2(0.5, 0.5)
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
+      this.touch.addTouch(uv)
     }
-  };
+  }
 }
 
 
@@ -477,7 +481,7 @@ export default class TouchTexture {
 
     // draw white points
     this.trail.forEach((point, i) => {
-      this.drawTouch(point)
+      this.drawTouch(point, i)
     })
 
     // update texture
@@ -548,7 +552,7 @@ export default class TouchTexture {
 
 ===== Filename: src/js/glsl/main.frag =====
 
-// Fragment Shader
+// Fragment Shader with Corrected UV Mapping
 precision mediump float;
 
 uniform sampler2D uSprite1;
@@ -560,7 +564,7 @@ uniform float uProgress;
 
 varying vec2 vTexCoords;
 
-// create a circle value in a frag shader
+// Function to create a circular opacity mask
 float circle(vec2 uv, float border) {
   float radius = 0.5;
   float dist = radius - distance(uv, vec2(0.5));
@@ -575,17 +579,14 @@ void main() {
   float sheetIndex = floor(uFrameIndex / framesPerSheet);
   float frameInSheet = mod(uFrameIndex, framesPerSheet);
 
-  bool isLastFrame = sheetIndex >= 1.0;
   bool useSprite1 = sheetIndex < 1.0;
 
-  // Calculate frame number within the current and next sprite sheet
+  // Calculate current and next frames within the sprite sheet
   float currentFrame = frameInSheet;
-  float nextFrame = useSprite1 ? frameInSheet + 1.0 : frameInSheet + 1.0;
+  float nextFrame = currentFrame + 1.0;
 
   // Clamp nextFrame to avoid overflow
-  if (useSprite1 && nextFrame >= framesPerSheet) {
-    nextFrame = framesPerSheet - 1.0;
-  } else if (!useSprite1 && nextFrame >= framesPerSheet) {
+  if (nextFrame >= framesPerSheet) {
     nextFrame = framesPerSheet - 1.0;
   }
 
@@ -597,14 +598,17 @@ void main() {
   float nextFrameCol = mod(nextFrame, uSpriteCols);
   float nextFrameRow = floor(nextFrame / uSpriteCols);
 
-  // Calculate UV offset for current frame
-  vec2 frameUVOffset = vec2(frameCol, frameRow) / vec2(uSpriteCols, uSpriteRows);
+  // Define frame dimensions and padding in UV space
+  float frameWidth = 300.0 / 1510.0; // ≈0.1987
+  float frameHeight = 170.0 / 1700.0; // =0.1
+  float paddingX = 2.0 / 1510.0;      // ≈0.0013
 
-  // Calculate UV offset for next frame
-  vec2 nextFrameUVOffset = vec2(nextFrameCol, nextFrameRow) / vec2(uSpriteCols, uSpriteRows);
+  // Calculate UV offset for current and next frames
+  vec2 frameUVOffset = vec2(frameCol * (frameWidth + paddingX), frameRow * frameHeight);
+  vec2 nextFrameUVOffset = vec2(nextFrameCol * (frameWidth + paddingX), nextFrameRow * frameHeight);
 
   // Calculate UV within the frame
-  vec2 uvWithinFrame = gl_PointCoord / vec2(uSpriteCols, uSpriteRows);
+  vec2 uvWithinFrame = gl_PointCoord * vec2(frameWidth, frameHeight);
 
   // Final UV coordinates for current and next frames
   vec2 finalUVCurrent = frameUVOffset + uvWithinFrame;
@@ -635,7 +639,7 @@ void main() {
 
 ===== Filename: src/js/glsl/main.vert =====
 
-// Vertex Shader
+// Vertex Shader with Z-Axis Displacement Disabled
 precision mediump float;
 
 uniform float uPointSize;
@@ -645,37 +649,35 @@ uniform sampler2D uTouch;
 uniform float uNbLines;
 uniform float uNbColumns;
 uniform float uScaleHeightPointSize;
-uniform float uWaveFrequency;
+// uniform float uWaveFrequency; // Unused, can be removed
 
 attribute vec3 initPosition;
 
 varying vec2 vTexCoords;
 
 void main() {
-  // shunk of code used in Three.js
-  // https://github.com/mrdoob/three.js/blob/master/src/renderers/shaders/ShaderChunk/begin_vertex.glsl.js
+  // Chunk of code used in Three.js
   #include <begin_vertex>
 
-  // appear effect
+  // Appear effect
   transformed = initPosition + ((position - initPosition) * uProgress);
 
-  // get UVs of the plane
+  // Get UVs of the plane
   vec2 vUv = transformed.xy / vec2(uNbLines, uNbColumns) - vec2(-0.5, -0.5);
 
-  // get Touch canvas texture
-  float touch = texture2D(uTouch, vUv).r;
-  // apply the touch canvas texture on the Z axis of the particles
+  // Get Touch canvas texture
+  // float touch = texture2D(uTouch, vUv).r;
+  // Apply the touch canvas texture on the Z axis of the particles
   // (if touch texture is white, apply force, if black do nothing)
-  transformed.z += touch * 40.;
+  // transformed.z += touch * 40.0; // Temporarily disable
 
-  // https://github.com/mrdoob/three.js/blob/master/src/renderers/shaders/ShaderChunk/project_vertex.glsl.js
-	#include <project_vertex>
+  // Project vertex
+  #include <project_vertex>
 
-  // get Texture coords for fragment shader
+  // Get Texture coords for fragment shader
   vTexCoords = position.xy;
 
   // Final Position
-  gl_PointSize = uPointSize * ( uScaleHeightPointSize / - mvPosition.z );
+  gl_PointSize = uPointSize * (uScaleHeightPointSize / -mvPosition.z);
 }
-
 

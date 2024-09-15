@@ -1,4 +1,5 @@
 import {
+  Color,
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
@@ -7,7 +8,9 @@ import {
   Points,
   ShaderMaterial,
   Raycaster,
-  Vector2
+  Vector2,
+  LinearFilter,
+  ClampToEdgeWrapping,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
@@ -58,7 +61,6 @@ export default class MainScene {
     try {
       // Preload assets before initiating the scene
       const assets = [
-        { name: 'me', texture: './img/me.png' },
         { name: 'sprite1', texture: './img/sprite1.jpg' },
         { name: 'sprite2', texture: './img/sprite2.jpg' },
       ]
@@ -82,6 +84,7 @@ export default class MainScene {
       this.events()
 
       this.animateIn()
+      this.uniforms.uProgress.value = 1.0
     } catch (error) {
       console.error('Error during initialization:', error)
       throw error // Re-throw to be caught in the constructor
@@ -145,7 +148,7 @@ export default class MainScene {
       this.controls = new OrbitControls(this.camera, this.renderer.domElement)
       this.controls.enableDamping = true
       this.controls.enableRotate = true // Disable rotation to prevent interference
-      this.controls.enableZoom = false   // Disable zoom if not needed
+      this.controls.enableZoom = true   // Disable zoom if not needed
       // this.controls.autoRotate = true
       // this.controls.dampingFactor = 0.04
     } catch (error) {
@@ -164,27 +167,26 @@ export default class MainScene {
 
       const particles = []
       const initPositions = []
-      const multiplier = 18
+      const multiplier = 16
       const nbColumns = 9 * multiplier
       const nbLines = 16 * multiplier
 
       this.nbColumns = nbColumns
       this.nbLines = nbLines
 
-      const halfColumn = nbColumns / 2
-      const halfLines = nbLines / 2
+      const halfColumn = nbColumns / 6
+      const halfLines = nbLines / 6
 
       // for each line / column add a "particle" to the array
-
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i, y, 0.0] // coordinates of each point
+          const point = [i, y, 0.0]; // coordinates of each point
 
           // appear from Z
           const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
 
-          particles.push(...point) // spread the coordinates for Float32Array
-          initPositions.push(...initPoint)
+          particles.push(...point); // spread the coordinates for Float32Array
+          initPositions.push(...initPoint);
         }
       }
 
@@ -205,22 +207,20 @@ export default class MainScene {
         uNbLines: { value: nbLines },
         uNbColumns: { value: nbColumns },
         uProgress: { value: this.guiObj.uProgress },
-        uTime: { value: 0 },
+        uTime: { value: 0.0 },
         uTouch: { value: this.touch.texture },
-        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2 },
-        uBrightness: { value: 2.0 }, // New uniform for controlling brightness
-        // New uniforms for sprite sheets
-        uFrameIndex: { value: 0.0 }, // Current frame index
-        uSpriteCols: { value: 5.0 }, // Columns per sprite sheet
-        uSpriteRows: { value: 10.0 }, // Rows per sprite sheet
-        uTotalFrames: { value: 100.0 }, // Total frames (sprite1 + sprite2)
+        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
+
+        // Sprite sheet uniforms
+        uFrameIndex: { value: 0 },
+        uSpriteCols: { value: 5 },
+        uSpriteRows: { value: 10 },
+        uTotalFrames: { value: 100 },
 
         // Sprite sheet textures
-        uSprite1: { value: LoaderManager.assets['sprite1'].texture },
-        uSprite2: { value: LoaderManager.assets['sprite2'].texture },
+        uSprite1: { value: LoaderManager.assets['sprite1'].texture }, // sampler2D
+        uSprite2: { value: LoaderManager.assets['sprite2'].texture }, // sampler2D
       }
-
-
 
       // create a custom shaderMaterial for this geometry
       const customMaterial = new ShaderMaterial({
@@ -286,7 +286,7 @@ export default class MainScene {
         this.uniforms.uProgress.value = this.guiObj.uProgress
       })
       // Removed texture selection GUI as frame index now controls sprite sheets
-      gui.add(this.guiObj, 'pointSize', 0, 4).onChange(() => {
+      gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
         this.uniforms.uPointSize.value = this.guiObj.pointSize
       })
     } catch (error) {
