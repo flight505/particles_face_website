@@ -1,16 +1,20 @@
-// Fragment Shader without Blending Sprite Sheets
 precision mediump float;
 
+// Sprite Sheet Samplers
 uniform sampler2D uSprite1;
 uniform sampler2D uSprite2;
+
+// Frame Control Uniforms
 uniform float uFrameIndex;
 uniform float uSpriteCols;
 uniform float uSpriteRows;
+
+// Animation Progress
 uniform float uProgress;
 
+// Varying UV Coordinates from Vertex Shader
 varying vec2 vTexCoords;
 
-// Function to create a circular opacity mask
 float circle(vec2 uv, float border) {
   float radius = 0.5;
   float dist = radius - distance(uv, vec2(0.5));
@@ -18,33 +22,34 @@ float circle(vec2 uv, float border) {
 }
 
 void main() {
-  // Total frames per sprite sheet
+  // Total Frames per Sprite Sheet
   float framesPerSheet = 50.0;
 
-  // Determine current sprite sheet and frame within the sheet
+  // Determine Current Sprite Sheet and Frame Within the Sheet
   float sheetIndex = floor(uFrameIndex / framesPerSheet);
   float frameInSheet = mod(uFrameIndex, framesPerSheet);
 
+  // Boolean to Select Sprite Sheet
   bool useSprite1 = sheetIndex < 1.0;
 
-  // Calculate row and column for current frame
+  // Calculate Column and Row for Current Frame
   float frameCol = mod(frameInSheet, uSpriteCols);
-  float frameRow = floor(frameInSheet / uSpriteCols);
+  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
 
-  // Define frame dimensions in UV space
+  // Define Frame Dimensions in UV Space
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
 
-  // Calculate UV offset for current frame
+  // Calculate UV Offset for Current Frame
   vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
 
-  // Calculate UV within the frame
+  // Calculate UV Within the Frame
   vec2 uvWithinFrame = vTexCoords * vec2(frameWidth, frameHeight);
 
-  // Final UV coordinates for current frame
+  // Final UV Coordinates for Current Frame
   vec2 finalUV = frameUVOffset + uvWithinFrame;
 
-  // Sample texture from the correct sprite sheet
+  // Sample Texture from the Correct Sprite Sheet
   vec4 sampledColor;
   if (useSprite1) {
     sampledColor = texture2D(uSprite1, finalUV);
@@ -52,14 +57,14 @@ void main() {
     sampledColor = texture2D(uSprite2, finalUV);
   }
 
-  // Apply the texture color
+  // Apply the Sampled Texture Color
   gl_FragColor.rgb = sampledColor.rgb;
 
-  // Discard pixels if too dark
+  // Discard Pixels if Too Dark to Create Transparency
   if (gl_FragColor.r < 0.1) {
     discard;
   }
 
-  // Apply circle opacity and progress
+  // Apply Circular Opacity Mask and Animation Progress
   gl_FragColor.a = circle(gl_PointCoord, 0.2) * uProgress;
 }

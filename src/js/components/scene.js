@@ -1,3 +1,5 @@
+// ===== Filename: src/js/components/scene.js =====
+
 import {
   Color,
   WebGLRenderer,
@@ -39,7 +41,6 @@ export default class MainScene {
     pointSize: 1.5,
   }
 
-
   constructor() {
     this.canvas = document.querySelector('.scene')
     if (!this.canvas) {
@@ -61,8 +62,8 @@ export default class MainScene {
     try {
       // Preload assets before initiating the scene
       const assets = [
-        { name: 'sprite1', texture: './img/sprite1.jpg' },
-        { name: 'sprite2', texture: './img/sprite2.jpg' },
+        { name: 'sprite1', texture: './img/sprite1.jpg', flipY: true },
+        { name: 'sprite2', texture: './img/sprite2.jpg', flipY: true },
       ]
 
       await LoaderManager.load(assets)
@@ -147,8 +148,8 @@ export default class MainScene {
     try {
       this.controls = new OrbitControls(this.camera, this.renderer.domElement)
       this.controls.enableDamping = true
-      this.controls.enableRotate = true // Disable rotation to prevent interference
-      this.controls.enableZoom = true   // Disable zoom if not needed
+      this.controls.enableRotate = true // Enable rotation for user interaction
+      this.controls.enableZoom = true   // Enable zoom for user interaction
       // this.controls.autoRotate = true
       // this.controls.dampingFactor = 0.04
     } catch (error) {
@@ -162,7 +163,7 @@ export default class MainScene {
     try {
       // Create a grid of particles
 
-      // create a geometry
+      // Create a geometry
       const geometry = new BufferGeometry()
 
       const particles = []
@@ -178,16 +179,16 @@ export default class MainScene {
       const halfColumn = nbColumns / 2
       const halfLines = nbLines / 2
 
-      // for each line / column add a "particle" to the array
+      // For each line/column, add a "particle" to the array
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i - halfLines, y - halfColumn, 0.0]; // Centered coordinates
+          const point = [i - halfLines, y - halfColumn, 0.0] // Centered coordinates
 
           // Initialize Z with some random depth for displacement effect
           const initPoint = [i - halfLines, y - halfColumn, randFloat(50, 150)] // Reduced z range for better visualization
 
-          particles.push(...point); // spread the coordinates for Float32Array
-          initPositions.push(...initPoint);
+          particles.push(...point) // Spread the coordinates for Float32Array
+          initPositions.push(...initPoint)
         }
       }
 
@@ -220,9 +221,12 @@ export default class MainScene {
         // Sprite sheet textures
         uSprite1: { value: LoaderManager.assets['sprite1'].texture }, // sampler2D
         uSprite2: { value: LoaderManager.assets['sprite2'].texture }, // sampler2D
+
+        // New uniform for active sprite sheet in vertex shader
+        uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture }, // Initially sprite1
       }
 
-      // create a custom shaderMaterial for this geometry
+      // Create a custom ShaderMaterial for this geometry
       const customMaterial = new ShaderMaterial({
         uniforms: this.uniforms,
         vertexShader,
@@ -241,7 +245,7 @@ export default class MainScene {
   }
 
   animateIn() {
-    // animate progress uniform
+    // Animate progress uniform
     gsap.fromTo(
       this.uniforms.uProgress,
       {
@@ -282,8 +286,18 @@ export default class MainScene {
   setGUI() {
     try {
       const gui = new GUI()
-      gui.add(this.guiObj, 'uProgress', 0, 1).onChange(() => {
+      gui.add(this.guiObj, 'uProgress', 0, 1, 0.01).onChange(() => {
         this.uniforms.uProgress.value = this.guiObj.uProgress
+      }).name('Progress').listen()
+
+      // Ensure progress ends at 1
+      gsap.to(this.guiObj, {
+        uProgress: 1,
+        duration: 2.5,
+        ease: 'Power4.easeOut',
+        onUpdate: () => {
+          this.uniforms.uProgress.value = this.guiObj.uProgress
+        }
       })
       // Removed texture selection GUI as frame index now controls sprite sheets
       gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
@@ -294,6 +308,7 @@ export default class MainScene {
       // Optionally continue without GUI
     }
   }
+
   /**
    * List of events
    */
@@ -307,8 +322,8 @@ export default class MainScene {
   /**
    * Request animation frame function
    * This function is called 60/time per seconds with no performance issue
-   * Everything that happens in the scene is drawed here
-   * @param {Number} now
+   * Everything that happens in the scene is drawn here
+   * @param {Number} time
    */
   draw = (time) => {
     if (this.stats) this.stats.begin()
@@ -376,6 +391,30 @@ export default class MainScene {
       value: frameIndex,
       duration: 0.3, // Adjust duration as needed
       ease: 'power2.out',
+      onUpdate: () => {
+        // Determine active sprite sheet based on frameIndex
+        const framesPerSheet = 50.0; // As each sheet has 50 frames
+        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
+
+        if (sheetIndex < 1) {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
+        } else {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
+        }
+
+        // Calculate frame within the active sprite sheet
+        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
+
+        // Calculate column and row for current frame
+        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
+        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
+
+        // Calculate UV offset for the current frame
+        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+
+        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
+      },
     });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
@@ -409,6 +448,30 @@ export default class MainScene {
       value: frameIndex,
       duration: 0.3, // Adjust duration as needed
       ease: 'power2.out',
+      onUpdate: () => {
+        // Determine active sprite sheet based on frameIndex
+        const framesPerSheet = 50.0; // As each sheet has 50 frames
+        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
+
+        if (sheetIndex < 1) {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
+        } else {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
+        }
+
+        // Calculate frame within the active sprite sheet
+        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
+
+        // Calculate column and row for current frame
+        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
+        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
+
+        // Calculate UV offset for the current frame
+        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+
+        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
+      },
     });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched

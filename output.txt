@@ -1,6 +1,8 @@
 
 ===== Filename: src/js/components/scene.js =====
 
+// ===== Filename: src/js/components/scene.js =====
+
 import {
   Color,
   WebGLRenderer,
@@ -42,7 +44,6 @@ export default class MainScene {
     pointSize: 1.5,
   }
 
-
   constructor() {
     this.canvas = document.querySelector('.scene')
     if (!this.canvas) {
@@ -64,8 +65,8 @@ export default class MainScene {
     try {
       // Preload assets before initiating the scene
       const assets = [
-        { name: 'sprite1', texture: './img/sprite1.jpg' },
-        { name: 'sprite2', texture: './img/sprite2.jpg' },
+        { name: 'sprite1', texture: './img/sprite1.jpg', flipY: true },
+        { name: 'sprite2', texture: './img/sprite2.jpg', flipY: true },
       ]
 
       await LoaderManager.load(assets)
@@ -150,8 +151,8 @@ export default class MainScene {
     try {
       this.controls = new OrbitControls(this.camera, this.renderer.domElement)
       this.controls.enableDamping = true
-      this.controls.enableRotate = true // Disable rotation to prevent interference
-      this.controls.enableZoom = true   // Disable zoom if not needed
+      this.controls.enableRotate = true // Enable rotation for user interaction
+      this.controls.enableZoom = true   // Enable zoom for user interaction
       // this.controls.autoRotate = true
       // this.controls.dampingFactor = 0.04
     } catch (error) {
@@ -165,7 +166,7 @@ export default class MainScene {
     try {
       // Create a grid of particles
 
-      // create a geometry
+      // Create a geometry
       const geometry = new BufferGeometry()
 
       const particles = []
@@ -181,16 +182,16 @@ export default class MainScene {
       const halfColumn = nbColumns / 2
       const halfLines = nbLines / 2
 
-      // for each line / column add a "particle" to the array
+      // For each line/column, add a "particle" to the array
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i - halfLines, y - halfColumn, 0.0]; // Centered coordinates
+          const point = [i - halfLines, y - halfColumn, 0.0] // Centered coordinates
 
           // Initialize Z with some random depth for displacement effect
           const initPoint = [i - halfLines, y - halfColumn, randFloat(50, 150)] // Reduced z range for better visualization
 
-          particles.push(...point); // spread the coordinates for Float32Array
-          initPositions.push(...initPoint);
+          particles.push(...point) // Spread the coordinates for Float32Array
+          initPositions.push(...initPoint)
         }
       }
 
@@ -223,9 +224,12 @@ export default class MainScene {
         // Sprite sheet textures
         uSprite1: { value: LoaderManager.assets['sprite1'].texture }, // sampler2D
         uSprite2: { value: LoaderManager.assets['sprite2'].texture }, // sampler2D
+
+        // New uniform for active sprite sheet in vertex shader
+        uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture }, // Initially sprite1
       }
 
-      // create a custom shaderMaterial for this geometry
+      // Create a custom ShaderMaterial for this geometry
       const customMaterial = new ShaderMaterial({
         uniforms: this.uniforms,
         vertexShader,
@@ -244,7 +248,7 @@ export default class MainScene {
   }
 
   animateIn() {
-    // animate progress uniform
+    // Animate progress uniform
     gsap.fromTo(
       this.uniforms.uProgress,
       {
@@ -285,8 +289,18 @@ export default class MainScene {
   setGUI() {
     try {
       const gui = new GUI()
-      gui.add(this.guiObj, 'uProgress', 0, 1).onChange(() => {
+      gui.add(this.guiObj, 'uProgress', 0, 1, 0.01).onChange(() => {
         this.uniforms.uProgress.value = this.guiObj.uProgress
+      }).name('Progress').listen()
+
+      // Ensure progress ends at 1
+      gsap.to(this.guiObj, {
+        uProgress: 1,
+        duration: 2.5,
+        ease: 'Power4.easeOut',
+        onUpdate: () => {
+          this.uniforms.uProgress.value = this.guiObj.uProgress
+        }
       })
       // Removed texture selection GUI as frame index now controls sprite sheets
       gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
@@ -297,6 +311,7 @@ export default class MainScene {
       // Optionally continue without GUI
     }
   }
+
   /**
    * List of events
    */
@@ -310,8 +325,8 @@ export default class MainScene {
   /**
    * Request animation frame function
    * This function is called 60/time per seconds with no performance issue
-   * Everything that happens in the scene is drawed here
-   * @param {Number} now
+   * Everything that happens in the scene is drawn here
+   * @param {Number} time
    */
   draw = (time) => {
     if (this.stats) this.stats.begin()
@@ -379,6 +394,30 @@ export default class MainScene {
       value: frameIndex,
       duration: 0.3, // Adjust duration as needed
       ease: 'power2.out',
+      onUpdate: () => {
+        // Determine active sprite sheet based on frameIndex
+        const framesPerSheet = 50.0; // As each sheet has 50 frames
+        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
+
+        if (sheetIndex < 1) {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
+        } else {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
+        }
+
+        // Calculate frame within the active sprite sheet
+        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
+
+        // Calculate column and row for current frame
+        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
+        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
+
+        // Calculate UV offset for the current frame
+        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+
+        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
+      },
     });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
@@ -412,6 +451,30 @@ export default class MainScene {
       value: frameIndex,
       duration: 0.3, // Adjust duration as needed
       ease: 'power2.out',
+      onUpdate: () => {
+        // Determine active sprite sheet based on frameIndex
+        const framesPerSheet = 50.0; // As each sheet has 50 frames
+        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
+
+        if (sheetIndex < 1) {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
+        } else {
+          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
+        }
+
+        // Calculate frame within the active sprite sheet
+        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
+
+        // Calculate column and row for current frame
+        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
+        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
+
+        // Calculate UV offset for the current frame
+        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
+        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
+
+        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
+      },
     });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
@@ -558,19 +621,27 @@ export default class TouchTexture {
 
 ===== Filename: src/js/glsl/main.frag =====
 
-// Fragment Shader without Blending Sprite Sheets
+// ===== Filename: src/js/glsl/main.frag =====
+
+// Fragment Shader with Sprite Sheet Blending for Dynamic Coloring and Opacity
 precision mediump float;
 
+// Sprite Sheet Samplers
 uniform sampler2D uSprite1;
 uniform sampler2D uSprite2;
+
+// Frame Control Uniforms
 uniform float uFrameIndex;
 uniform float uSpriteCols;
 uniform float uSpriteRows;
+
+// Animation Progress
 uniform float uProgress;
 
+// Varying UV Coordinates from Vertex Shader
 varying vec2 vTexCoords;
 
-// Function to create a circular opacity mask
+// Function to Create a Circular Opacity Mask
 float circle(vec2 uv, float border) {
   float radius = 0.5;
   float dist = radius - distance(uv, vec2(0.5));
@@ -578,33 +649,37 @@ float circle(vec2 uv, float border) {
 }
 
 void main() {
-  // Total frames per sprite sheet
+  // Total Frames per Sprite Sheet
   float framesPerSheet = 50.0;
 
-  // Determine current sprite sheet and frame within the sheet
+  // Determine Current Sprite Sheet and Frame Within the Sheet
   float sheetIndex = floor(uFrameIndex / framesPerSheet);
   float frameInSheet = mod(uFrameIndex, framesPerSheet);
 
+  // Boolean to Select Sprite Sheet (sprite1 if true, sprite2 if false)
   bool useSprite1 = sheetIndex < 1.0;
 
-  // Calculate row and column for current frame
+  // Calculate Column and Row for Current Frame
   float frameCol = mod(frameInSheet, uSpriteCols);
   float frameRow = floor(frameInSheet / uSpriteCols);
 
-  // Define frame dimensions in UV space
+  // Define Frame Dimensions in UV Space
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
 
-  // Calculate UV offset for current frame
+  // Calculate UV Offset for Current Frame
   vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
 
-  // Calculate UV within the frame
+  // Calculate UV Within the Frame
   vec2 uvWithinFrame = vTexCoords * vec2(frameWidth, frameHeight);
 
-  // Final UV coordinates for current frame
+  // Final UV Coordinates for Current Frame
   vec2 finalUV = frameUVOffset + uvWithinFrame;
 
-  // Sample texture from the correct sprite sheet
+  // **Flip the Y-coordinate of the UV**
+  finalUV.y = 1.0 - finalUV.y;
+
+  // Sample Texture from the Correct Sprite Sheet
   vec4 sampledColor;
   if (useSprite1) {
     sampledColor = texture2D(uSprite1, finalUV);
@@ -612,53 +687,262 @@ void main() {
     sampledColor = texture2D(uSprite2, finalUV);
   }
 
-  // Apply the texture color
+  // Apply the Sampled Texture Color
   gl_FragColor.rgb = sampledColor.rgb;
 
-  // Discard pixels if too dark
+  // Discard Pixels if Too Dark to Create Transparency
   if (gl_FragColor.r < 0.1) {
     discard;
   }
 
-  // Apply circle opacity and progress
+  // Apply Circular Opacity Mask and Animation Progress
   gl_FragColor.a = circle(gl_PointCoord, 0.2) * uProgress;
 }
 
 
 ===== Filename: src/js/glsl/main.vert =====
 
-// Vertex Shader with Only Z-Axis Displacement
+// ===== Filename: src/js/glsl/main.vert =====
+
+// Vertex Shader with Sprite Sheet-Based Z-Axis Displacement
 precision mediump float;
 
+// Point Size Uniform
 uniform float uPointSize;
+
+// Animation Progress
 uniform float uProgress;
+
+// Time Uniform (Unused in Current Shader but Kept for Potential Extensions)
 uniform float uTime;
+
+// Touch Texture Sampler (Unused in Current Shader but Kept for Potential Extensions)
 uniform sampler2D uTouch;
+
+// Grid Dimensions
 uniform float uNbLines;
 uniform float uNbColumns;
+
+// Scaling for Point Size Based on Height and Device Pixel Ratio
 uniform float uScaleHeightPointSize;
 
+// Sprite Sheet Uniforms
+uniform sampler2D uSpriteSheet;    // Active Sprite Sheet (sprite1 or sprite2)
+uniform vec2 uTexOffset;           // UV Offset to Select Current Frame
+uniform float uDisplacementScale;  // Intensity of Z-Axis Displacement
+uniform float uSpriteCols;         // Number of Columns in Sprite Sheet
+uniform float uSpriteRows;         // Number of Rows in Sprite Sheet
+
+// Attributes
 attribute vec3 initPosition;
 
+// Varying UV Coordinates to Pass to Fragment Shader
 varying vec2 vTexCoords;
 
 void main() {
-  // Only affect the Z-axis based on uProgress
+  // Initialize Transformed Position with Z-Axis Displacement Based on uProgress
   vec3 transformed = vec3(position.x, position.y, initPosition.z * (1.0 - uProgress));
 
-  // Project vertex
-  vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
-  gl_Position = projectionMatrix * mvPosition;
-
-  // Calculate normalized UVs based on particle position within the grid
-  // Assuming the grid is centered and spans from -halfLines to +halfLines and -halfColumns to +halfColumns
-  // Map x from [-halfLines, +halfLines] to [0,1]
-  // Map y from [-halfColumns, +halfColumns] to [0,1]
+  // Calculate Normalized UVs Based on Particle Position Within the Grid
+  // Mapping X from [-halfLines, +halfLines] to [0,1]
+  // Mapping Y from [-halfColumns, +halfColumns] to [0,1]
   float normalizedX = (position.x + (uNbLines / 2.0)) / float(uNbLines);
   float normalizedY = (position.y + (uNbColumns / 2.0)) / float(uNbColumns);
   vTexCoords = vec2(normalizedX, normalizedY);
 
-  // Final Position (Point Size based on Z)
+  // Sample the Sprite Sheet to Get Displacement Data
+  vec4 spriteData = texture2D(uSpriteSheet, uTexOffset + vTexCoords * vec2(1.0 / uSpriteCols, 1.0 / uSpriteRows));
+
+  // Use the Red Channel from Sprite Data to Determine Z-Axis Displacement
+  float displacement = spriteData.r * uDisplacementScale;
+  transformed.z += displacement;
+
+  // Project the Transformed Vertex Position
+  vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+
+  // Adjust Point Size Based on Z-Axis for Depth Perception
   gl_PointSize = uPointSize * (uScaleHeightPointSize / -mvPosition.z);
 }
+
+
+===== Filename: src/js/managers/LoaderManager.js =====
+
+// ===== Filename: src/js/managers/LoaderManager.js =====
+
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextureLoader, LinearFilter, ClampToEdgeWrapping } from 'three'
+
+class LoaderManager {
+  assets
+  constructor() {
+    this.assets = {} // Dictionary of assets
+
+    this.textureLoader = new TextureLoader()
+    this.GLTFLoader = new GLTFLoader()
+    this.OBJLoader = new OBJLoader()
+    this.DRACOLoader = new DRACOLoader()
+    this.FontLoader = new FontLoader()
+  }
+
+  load = (data) =>
+    new Promise((resolve, reject) => {
+      const promises = []
+      for (let i = 0; i < data.length; i++) {
+        const { name, gltf, texture, img, font, obj, flipY } = data[i]
+
+        if (!this.assets[name]) {
+          this.assets[name] = {}
+        }
+
+        if (gltf) {
+          promises.push(this.loadGLTF(gltf, name))
+        }
+
+        if (texture) {
+          promises.push(this.loadTexture(texture, name, flipY))
+        }
+
+        if (img) {
+          promises.push(this.loadImage(img, name))
+        }
+
+        if (font) {
+          promises.push(this.loadFont(font, name))
+        }
+
+        if (obj) {
+          promises.push(this.loadObj(obj, name))
+        }
+      }
+
+      Promise.all(promises)
+        .then(() => resolve())
+        .catch(error => {
+          console.error('Error loading assets:', error)
+          reject(error)
+        })
+    })
+
+  loadGLTF(url, name) {
+    return new Promise((resolve, reject) => {
+      this.DRACOLoader.setDecoderPath('../scene/vendor/three/draco/')
+      this.GLTFLoader.setDRACOLoader(this.DRACOLoader)
+
+      this.GLTFLoader.load(
+        url,
+        (result) => {
+          this.assets[name].gltf = result
+          resolve(result)
+        },
+        undefined,
+        (e) => {
+          console.error(`Error loading GLTF ${name}:`, e)
+          reject(e)
+        }
+      )
+    })
+  }
+
+  loadTexture(url, name, flipY = true) {
+    if (!this.assets[name]) {
+      this.assets[name] = {}
+    }
+    return new Promise((resolve, reject) => {
+      this.textureLoader.load(
+        url,
+        (result) => {
+          result.flipY = flipY
+          // Set texture parameters for optimal performance and quality
+          result.minFilter = LinearFilter
+          result.magFilter = LinearFilter
+          result.wrapS = ClampToEdgeWrapping
+          result.wrapT = ClampToEdgeWrapping
+          this.assets[name].texture = result
+          resolve(result)
+        },
+        undefined,
+        (e) => {
+          console.error(`Error loading texture ${name}:`, e)
+          reject(e)
+        }
+      )
+    })
+  }
+
+  loadImage(url, name) {
+    return new Promise((resolve, reject) => {
+      const image = new Image()
+
+      image.onload = () => {
+        this.assets[name].img = image
+        resolve(image)
+      }
+
+      image.onerror = (e) => {
+        console.error(`Error loading image ${name}:`, e)
+        reject(e)
+      }
+
+      image.src = url
+    })
+  }
+
+  loadFont(url, name) {
+    // Convert font to typeface.json using https://gero3.github.io/facetype.js/
+    return new Promise((resolve, reject) => {
+      this.FontLoader.load(
+        url,
+        // onLoad callback
+        (font) => {
+          this.assets[name].font = font
+          resolve(font)
+        },
+        // onProgress callback
+        () =>
+        // xhr
+        {
+          // Optional: Implement progress feedback if needed
+        },
+        // onError callback
+        (err) => {
+          console.error(`Error loading font ${name}:`, err)
+          reject(err)
+        }
+      )
+    })
+  }
+
+  // https://threejs.org/docs/#examples/en/loaders/OBJLoader
+  loadObj(url, name) {
+    return new Promise((resolve, reject) => {
+      // Load a resource
+      this.OBJLoader.load(
+        // resource URL
+        url,
+        // called when resource is loaded
+        (object) => {
+          this.assets[name].obj = object
+          resolve(object)
+        },
+        // onProgress callback
+        () =>
+        // xhr
+        {
+          // Optional: Implement progress feedback if needed
+        },
+        // called when loading has errors
+        (err) => {
+          console.error(`Error loading OBJ ${name}:`, err)
+          reject(err)
+        }
+      )
+    })
+  }
+}
+
+export default new LoaderManager()
 
