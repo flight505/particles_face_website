@@ -1,4 +1,4 @@
-// Fragment Shader with Texture Sampling and Blending
+// Fragment Shader without Blending Sprite Sheets
 precision mediump float;
 
 uniform sampler2D uSprite1;
@@ -21,56 +21,39 @@ void main() {
   // Total frames per sprite sheet
   float framesPerSheet = 50.0;
 
-  // Determine current sprite sheet and next sprite sheet
+  // Determine current sprite sheet and frame within the sheet
   float sheetIndex = floor(uFrameIndex / framesPerSheet);
   float frameInSheet = mod(uFrameIndex, framesPerSheet);
 
   bool useSprite1 = sheetIndex < 1.0;
 
-  // Calculate current and next frames within the sprite sheet
-  float currentFrame = frameInSheet;
-  float nextFrame = currentFrame + 1.0;
-
-  // Clamp nextFrame to avoid overflow
-  if (nextFrame >= framesPerSheet) {
-    nextFrame = framesPerSheet - 1.0;
-  }
-
   // Calculate row and column for current frame
-  float frameCol = mod(currentFrame, uSpriteCols);
-  float frameRow = floor(currentFrame / uSpriteCols);
+  float frameCol = mod(frameInSheet, uSpriteCols);
+  float frameRow = floor(frameInSheet / uSpriteCols);
 
-  // Calculate row and column for next frame
-  float nextFrameCol = mod(nextFrame, uSpriteCols);
-  float nextFrameRow = floor(nextFrame / uSpriteCols);
-
-  // Define frame dimensions and padding in UV space
+  // Define frame dimensions in UV space
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
 
-  // Calculate UV offset for current and next frames
+  // Calculate UV offset for current frame
   vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
-  vec2 nextFrameUVOffset = vec2(nextFrameCol * frameWidth, nextFrameRow * frameHeight);
 
   // Calculate UV within the frame
   vec2 uvWithinFrame = vTexCoords * vec2(frameWidth, frameHeight);
 
-  // Final UV coordinates for current and next frames
-  vec2 finalUVCurrent = frameUVOffset + uvWithinFrame;
-  vec2 finalUVNext = nextFrameUVOffset + uvWithinFrame;
+  // Final UV coordinates for current frame
+  vec2 finalUV = frameUVOffset + uvWithinFrame;
 
-  // Calculate interpolation factor
-  float interp = fract(uFrameIndex);
-
-  // Sample textures
-  vec4 colorCurrent = useSprite1 ? texture2D(uSprite1, finalUVCurrent) : texture2D(uSprite2, finalUVCurrent);
-  vec4 colorNext = useSprite1 ? texture2D(uSprite1, finalUVNext) : texture2D(uSprite2, finalUVNext);
-
-  // Blend between current and next frame
-  vec4 blendedColor = mix(colorCurrent, colorNext, interp);
+  // Sample texture from the correct sprite sheet
+  vec4 sampledColor;
+  if (useSprite1) {
+    sampledColor = texture2D(uSprite1, finalUV);
+  } else {
+    sampledColor = texture2D(uSprite2, finalUV);
+  }
 
   // Apply the texture color
-  gl_FragColor.rgb = blendedColor.rgb;
+  gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark
   if (gl_FragColor.r < 0.1) {

@@ -168,22 +168,23 @@ export default class MainScene {
       const particles = []
       const initPositions = []
       const multiplier = 16
-      const nbColumns = 9 * multiplier
-      const nbLines = 16 * multiplier
+      const nbColumns = 9 * multiplier // 144
+      const nbLines = 16 * multiplier  // 256
 
       this.nbColumns = nbColumns
       this.nbLines = nbLines
 
-      const halfColumn = nbColumns / 6
-      const halfLines = nbLines / 6
+      // Center the grid
+      const halfColumn = nbColumns / 2
+      const halfLines = nbLines / 2
 
       // for each line / column add a "particle" to the array
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i, y, 0.0]; // coordinates of each point
+          const point = [i - halfLines, y - halfColumn, 0.0]; // Centered coordinates
 
-          // appear from Z
-          const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
+          // Initialize Z with some random depth for displacement effect
+          const initPoint = [i - halfLines, y - halfColumn, randFloat(50, 150)] // Reduced z range for better visualization
 
           particles.push(...point); // spread the coordinates for Float32Array
           initPositions.push(...initPoint);
@@ -199,7 +200,6 @@ export default class MainScene {
       geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
 
       geometry.center()
-      // const material = new MeshBasicMaterial({ color: 0xff0000 })
 
       this.dpr = 2 // device pixel ratio
       this.uniforms = {
@@ -360,58 +360,66 @@ export default class MainScene {
   }
 
   handleMouseMove = (e) => {
-    const x = (e.clientX / window.innerWidth) * 2 - 1
-    const y = -(e.clientY / window.innerHeight) * 2 + 1
-    this.mouse.x = x
-    this.mouse.y = y
+    const x = (e.clientX / window.innerWidth) * 2 - 1;
+    const y = -(e.clientY / window.innerHeight) * 2 + 1;
+    this.mouse.x = x;
+    this.mouse.y = y;
 
     // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.clientX / window.innerWidth
+    const normalizedX = e.clientX / window.innerWidth;
 
     // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
 
-    // Update the frame index uniform
-    this.uniforms.uFrameIndex.value = frameIndex
+    // Smoothly interpolate the frame index using GSAP for smoother transitions
+    gsap.to(this.uniforms.uFrameIndex, {
+      value: frameIndex,
+      duration: 0.3, // Adjust duration as needed
+      ease: 'power2.out',
+    });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera)
-    this.intersects = this.ray.intersectObjects([this.mesh])
+    this.ray.setFromCamera(this.mouse, this.camera);
+    this.intersects = this.ray.intersectObjects([this.mesh]);
 
     if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5)
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
-      this.touch.addTouch(uv)
+      const uv = new Vector2(0.5, 0.5);
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
+      this.touch.addTouch(uv);
     }
   }
 
   handleTouchMove = (e) => {
-    // same as mouse move but for touch devices
-    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1
-    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1
+    // Same as mouse move but for touch devices
+    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
 
-    this.mouse.x = x
-    this.mouse.y = y
+    this.mouse.x = x;
+    this.mouse.y = y;
 
     // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.touches[0].clientX / window.innerWidth
+    const normalizedX = e.touches[0].clientX / window.innerWidth;
 
     // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
 
-    // Update the frame index uniform
-    this.uniforms.uFrameIndex.value = frameIndex
+    // Smoothly interpolate the frame index using GSAP
+    gsap.to(this.uniforms.uFrameIndex, {
+      value: frameIndex,
+      duration: 0.3, // Adjust duration as needed
+      ease: 'power2.out',
+    });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera)
-    this.intersects = this.ray.intersectObjects([this.mesh])
+    this.ray.setFromCamera(this.mouse, this.camera);
+    this.intersects = this.ray.intersectObjects([this.mesh]);
 
     if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5)
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
-      this.touch.addTouch(uv)
+      const uv = new Vector2(0.5, 0.5);
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
+      this.touch.addTouch(uv);
     }
   }
 }

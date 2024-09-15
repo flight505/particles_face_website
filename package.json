@@ -3,7 +3,6 @@
   "name": "vite-2d-shader-template",
   "version": "0.0.0",
   "description": "Template to quickly code in Threejs, powered by Vite.",
-  "author": "Robin Payot <robpayot@gmail.com>",
   "license": "MIT",
   "type": "module",
   "keywords": [
@@ -14,7 +13,7 @@
     "code"
   ],
   "contributors": [
-    "Robin Payot <robpayot@gmail.com>"
+    "Jesper Vang <jesper_vang@me.com>"
   ],
   "scripts": {
     "dev": "vite",

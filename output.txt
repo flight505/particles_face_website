@@ -14,7 +14,7 @@ import {
   Vector2,
   LinearFilter,
   ClampToEdgeWrapping,
-} from 'three';
+} from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
 import LoaderManager from '@/js/managers/LoaderManager'
@@ -64,7 +64,6 @@ export default class MainScene {
     try {
       // Preload assets before initiating the scene
       const assets = [
-        // { name: 'me', texture: './img/me.png' },
         { name: 'sprite1', texture: './img/sprite1.jpg' },
         { name: 'sprite2', texture: './img/sprite2.jpg' },
       ]
@@ -178,20 +177,19 @@ export default class MainScene {
       this.nbColumns = nbColumns
       this.nbLines = nbLines
 
-      const halfColumn = nbColumns / 2
-      const halfLines = nbLines / 2
+      const halfColumn = nbColumns / 6
+      const halfLines = nbLines / 6
 
       // for each line / column add a "particle" to the array
-
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i, y, 0.0] // coordinates of each point
+          const point = [i, y, 0.0]; // coordinates of each point
 
           // appear from Z
           const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
 
-          particles.push(...point) // spread the coordinates for Float32Array
-          initPositions.push(...initPoint)
+          particles.push(...point); // spread the coordinates for Float32Array
+          initPositions.push(...initPoint);
         }
       }
 
@@ -217,10 +215,10 @@ export default class MainScene {
         uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
 
         // Sprite sheet uniforms
-        uFrameIndex: { value: 0.0 }, // float
-        uSpriteCols: { value: 5.0 }, // float
-        uSpriteRows: { value: 10.0 }, // float
-        uTotalFrames: { value: 100.0 }, // float
+        uFrameIndex: { value: 0 },
+        uSpriteCols: { value: 5 },
+        uSpriteRows: { value: 10 },
+        uTotalFrames: { value: 100 },
 
         // Sprite sheet textures
         uSprite1: { value: LoaderManager.assets['sprite1'].texture }, // sampler2D
@@ -291,7 +289,7 @@ export default class MainScene {
         this.uniforms.uProgress.value = this.guiObj.uProgress
       })
       // Removed texture selection GUI as frame index now controls sprite sheets
-      gui.add(this.guiObj, 'pointSize', 0, 100).onChange(() => {
+      gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
         this.uniforms.uPointSize.value = this.guiObj.pointSize
       })
     } catch (error) {
@@ -552,7 +550,7 @@ export default class TouchTexture {
 
 ===== Filename: src/js/glsl/main.frag =====
 
-// Fragment Shader with Corrected UV Mapping
+// Fragment Shader with Texture Sampling and Blending
 precision mediump float;
 
 uniform sampler2D uSprite1;
@@ -599,16 +597,15 @@ void main() {
   float nextFrameRow = floor(nextFrame / uSpriteCols);
 
   // Define frame dimensions and padding in UV space
-  float frameWidth = 300.0 / 1510.0; // ≈0.1987
-  float frameHeight = 170.0 / 1700.0; // =0.1
-  float paddingX = 2.0 / 1510.0;      // ≈0.0013
+  float frameWidth = 1.0 / uSpriteCols;
+  float frameHeight = 1.0 / uSpriteRows;
 
   // Calculate UV offset for current and next frames
-  vec2 frameUVOffset = vec2(frameCol * (frameWidth + paddingX), frameRow * frameHeight);
-  vec2 nextFrameUVOffset = vec2(nextFrameCol * (frameWidth + paddingX), nextFrameRow * frameHeight);
+  vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
+  vec2 nextFrameUVOffset = vec2(nextFrameCol * frameWidth, nextFrameRow * frameHeight);
 
   // Calculate UV within the frame
-  vec2 uvWithinFrame = gl_PointCoord * vec2(frameWidth, frameHeight);
+  vec2 uvWithinFrame = vTexCoords * vec2(frameWidth, frameHeight);
 
   // Final UV coordinates for current and next frames
   vec2 finalUVCurrent = frameUVOffset + uvWithinFrame;
@@ -649,7 +646,6 @@ uniform sampler2D uTouch;
 uniform float uNbLines;
 uniform float uNbColumns;
 uniform float uScaleHeightPointSize;
-// uniform float uWaveFrequency; // Unused, can be removed
 
 attribute vec3 initPosition;
 
@@ -665,17 +661,11 @@ void main() {
   // Get UVs of the plane
   vec2 vUv = transformed.xy / vec2(uNbLines, uNbColumns) - vec2(-0.5, -0.5);
 
-  // Get Touch canvas texture
-  // float touch = texture2D(uTouch, vUv).r;
-  // Apply the touch canvas texture on the Z axis of the particles
-  // (if touch texture is white, apply force, if black do nothing)
-  // transformed.z += touch * 40.0; // Temporarily disable
-
   // Project vertex
   #include <project_vertex>
 
   // Get Texture coords for fragment shader
-  vTexCoords = position.xy;
+  vTexCoords = vUv; // Use vUv instead of position.xy
 
   // Final Position
   gl_PointSize = uPointSize * (uScaleHeightPointSize / -mvPosition.z);
