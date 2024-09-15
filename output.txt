@@ -171,22 +171,23 @@ export default class MainScene {
       const particles = []
       const initPositions = []
       const multiplier = 16
-      const nbColumns = 9 * multiplier
-      const nbLines = 16 * multiplier
+      const nbColumns = 9 * multiplier // 144
+      const nbLines = 16 * multiplier  // 256
 
       this.nbColumns = nbColumns
       this.nbLines = nbLines
 
-      const halfColumn = nbColumns / 6
-      const halfLines = nbLines / 6
+      // Center the grid
+      const halfColumn = nbColumns / 2
+      const halfLines = nbLines / 2
 
       // for each line / column add a "particle" to the array
       for (let i = 0; i < nbLines; i++) {
         for (let y = 0; y < nbColumns; y++) {
-          const point = [i, y, 0.0]; // coordinates of each point
+          const point = [i - halfLines, y - halfColumn, 0.0]; // Centered coordinates
 
-          // appear from Z
-          const initPoint = [i - halfLines, y - halfColumn, randFloat(0, 500)]
+          // Initialize Z with some random depth for displacement effect
+          const initPoint = [i - halfLines, y - halfColumn, randFloat(50, 150)] // Reduced z range for better visualization
 
           particles.push(...point); // spread the coordinates for Float32Array
           initPositions.push(...initPoint);
@@ -202,7 +203,6 @@ export default class MainScene {
       geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
 
       geometry.center()
-      // const material = new MeshBasicMaterial({ color: 0xff0000 })
 
       this.dpr = 2 // device pixel ratio
       this.uniforms = {
@@ -363,58 +363,66 @@ export default class MainScene {
   }
 
   handleMouseMove = (e) => {
-    const x = (e.clientX / window.innerWidth) * 2 - 1
-    const y = -(e.clientY / window.innerHeight) * 2 + 1
-    this.mouse.x = x
-    this.mouse.y = y
+    const x = (e.clientX / window.innerWidth) * 2 - 1;
+    const y = -(e.clientY / window.innerHeight) * 2 + 1;
+    this.mouse.x = x;
+    this.mouse.y = y;
 
     // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.clientX / window.innerWidth
+    const normalizedX = e.clientX / window.innerWidth;
 
     // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
 
-    // Update the frame index uniform
-    this.uniforms.uFrameIndex.value = frameIndex
+    // Smoothly interpolate the frame index using GSAP for smoother transitions
+    gsap.to(this.uniforms.uFrameIndex, {
+      value: frameIndex,
+      duration: 0.3, // Adjust duration as needed
+      ease: 'power2.out',
+    });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera)
-    this.intersects = this.ray.intersectObjects([this.mesh])
+    this.ray.setFromCamera(this.mouse, this.camera);
+    this.intersects = this.ray.intersectObjects([this.mesh]);
 
     if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5)
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
-      this.touch.addTouch(uv)
+      const uv = new Vector2(0.5, 0.5);
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
+      this.touch.addTouch(uv);
     }
   }
 
   handleTouchMove = (e) => {
-    // same as mouse move but for touch devices
-    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1
-    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1
+    // Same as mouse move but for touch devices
+    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
 
-    this.mouse.x = x
-    this.mouse.y = y
+    this.mouse.x = x;
+    this.mouse.y = y;
 
     // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.touches[0].clientX / window.innerWidth
+    const normalizedX = e.touches[0].clientX / window.innerWidth;
 
     // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1)
+    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
 
-    // Update the frame index uniform
-    this.uniforms.uFrameIndex.value = frameIndex
+    // Smoothly interpolate the frame index using GSAP
+    gsap.to(this.uniforms.uFrameIndex, {
+      value: frameIndex,
+      duration: 0.3, // Adjust duration as needed
+      ease: 'power2.out',
+    });
 
     // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera)
-    this.intersects = this.ray.intersectObjects([this.mesh])
+    this.ray.setFromCamera(this.mouse, this.camera);
+    this.intersects = this.ray.intersectObjects([this.mesh]);
 
     if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5)
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
-      this.touch.addTouch(uv)
+      const uv = new Vector2(0.5, 0.5);
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
+      this.touch.addTouch(uv);
     }
   }
 }
@@ -550,7 +558,7 @@ export default class TouchTexture {
 
 ===== Filename: src/js/glsl/main.frag =====
 
-// Fragment Shader with Texture Sampling and Blending
+// Fragment Shader without Blending Sprite Sheets
 precision mediump float;
 
 uniform sampler2D uSprite1;
@@ -573,56 +581,39 @@ void main() {
   // Total frames per sprite sheet
   float framesPerSheet = 50.0;
 
-  // Determine current sprite sheet and next sprite sheet
+  // Determine current sprite sheet and frame within the sheet
   float sheetIndex = floor(uFrameIndex / framesPerSheet);
   float frameInSheet = mod(uFrameIndex, framesPerSheet);
 
   bool useSprite1 = sheetIndex < 1.0;
 
-  // Calculate current and next frames within the sprite sheet
-  float currentFrame = frameInSheet;
-  float nextFrame = currentFrame + 1.0;
-
-  // Clamp nextFrame to avoid overflow
-  if (nextFrame >= framesPerSheet) {
-    nextFrame = framesPerSheet - 1.0;
-  }
-
   // Calculate row and column for current frame
-  float frameCol = mod(currentFrame, uSpriteCols);
-  float frameRow = floor(currentFrame / uSpriteCols);
+  float frameCol = mod(frameInSheet, uSpriteCols);
+  float frameRow = floor(frameInSheet / uSpriteCols);
 
-  // Calculate row and column for next frame
-  float nextFrameCol = mod(nextFrame, uSpriteCols);
-  float nextFrameRow = floor(nextFrame / uSpriteCols);
-
-  // Define frame dimensions and padding in UV space
+  // Define frame dimensions in UV space
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
 
-  // Calculate UV offset for current and next frames
+  // Calculate UV offset for current frame
   vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
-  vec2 nextFrameUVOffset = vec2(nextFrameCol * frameWidth, nextFrameRow * frameHeight);
 
   // Calculate UV within the frame
   vec2 uvWithinFrame = vTexCoords * vec2(frameWidth, frameHeight);
 
-  // Final UV coordinates for current and next frames
-  vec2 finalUVCurrent = frameUVOffset + uvWithinFrame;
-  vec2 finalUVNext = nextFrameUVOffset + uvWithinFrame;
+  // Final UV coordinates for current frame
+  vec2 finalUV = frameUVOffset + uvWithinFrame;
 
-  // Calculate interpolation factor
-  float interp = fract(uFrameIndex);
-
-  // Sample textures
-  vec4 colorCurrent = useSprite1 ? texture2D(uSprite1, finalUVCurrent) : texture2D(uSprite2, finalUVCurrent);
-  vec4 colorNext = useSprite1 ? texture2D(uSprite1, finalUVNext) : texture2D(uSprite2, finalUVNext);
-
-  // Blend between current and next frame
-  vec4 blendedColor = mix(colorCurrent, colorNext, interp);
+  // Sample texture from the correct sprite sheet
+  vec4 sampledColor;
+  if (useSprite1) {
+    sampledColor = texture2D(uSprite1, finalUV);
+  } else {
+    sampledColor = texture2D(uSprite2, finalUV);
+  }
 
   // Apply the texture color
-  gl_FragColor.rgb = blendedColor.rgb;
+  gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark
   if (gl_FragColor.r < 0.1) {
@@ -636,7 +627,7 @@ void main() {
 
 ===== Filename: src/js/glsl/main.vert =====
 
-// Vertex Shader with Z-Axis Displacement Disabled
+// Vertex Shader with Only Z-Axis Displacement
 precision mediump float;
 
 uniform float uPointSize;
@@ -652,22 +643,22 @@ attribute vec3 initPosition;
 varying vec2 vTexCoords;
 
 void main() {
-  // Chunk of code used in Three.js
-  #include <begin_vertex>
-
-  // Appear effect
-  transformed = initPosition + ((position - initPosition) * uProgress);
-
-  // Get UVs of the plane
-  vec2 vUv = transformed.xy / vec2(uNbLines, uNbColumns) - vec2(-0.5, -0.5);
+  // Only affect the Z-axis based on uProgress
+  vec3 transformed = vec3(position.x, position.y, initPosition.z * (1.0 - uProgress));
 
   // Project vertex
-  #include <project_vertex>
+  vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
 
-  // Get Texture coords for fragment shader
-  vTexCoords = vUv; // Use vUv instead of position.xy
+  // Calculate normalized UVs based on particle position within the grid
+  // Assuming the grid is centered and spans from -halfLines to +halfLines and -halfColumns to +halfColumns
+  // Map x from [-halfLines, +halfLines] to [0,1]
+  // Map y from [-halfColumns, +halfColumns] to [0,1]
+  float normalizedX = (position.x + (uNbLines / 2.0)) / float(uNbLines);
+  float normalizedY = (position.y + (uNbColumns / 2.0)) / float(uNbColumns);
+  vTexCoords = vec2(normalizedX, normalizedY);
 
-  // Final Position
+  // Final Position (Point Size based on Z)
   gl_PointSize = uPointSize * (uScaleHeightPointSize / -mvPosition.z);
 }
 

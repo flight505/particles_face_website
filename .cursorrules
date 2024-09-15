@@ -4,7 +4,7 @@ INITIAL PROJECT ASSESSMENT
 On starting a new chat or task:
 1. Check for existing <currentTask> in this file.
 2. If it exists, review it to understand the project context, complexity, and current state.
-3. Reply back the latest update <currentTask> time stamp
+3. Reply back the latest update <currentTask> <time_stamp>
   
 Key Principles
   - Write concise, technical responses with accurate three.js examples.
@@ -52,60 +52,40 @@ React
   - Always throw user-friendly errors that tanStackQuery can catch and show to the user.
 
 
-<currentTask> Sep 14 18:21:01
+<currentTask> <Sep 15 11:57:03>
 
 Creating the 3D Face Animation Effect.
 In the provided 3JS scene, we can observe a particles, which appears on the scene (uProgress). Image is projected on to the particles. 
 
 This guide provides a detailed breakdown of how to create a 3D face animation effect using Three.js, with an emphasis on understanding the techniques required and the steps necessary to implement it effectively. The goal is to create a visual effect where a face follows the movement of the mouse, using displacement maps, sprite sheets, and point-based geometry manipulation. Our main file is scene.js
 
+Current Understanding:
 
+Scene Setup:
+  - Camera & Renderer: Basic Three.js environment is set up and functioning.
+  - Particle System: Particles are displayed on the scene with a U-progress animation initiating the scene.
+Assets:
+  - Sprite Sheets: sprite1.jpg (looking left) and sprite2.jpg (looking right) are used, both grayscale.
+  - Displacement Map: Black and white colors are used to displace particles along the Z-axis based on their brightness.
+Interactivity:
+  - Mouse Interaction: Mouse movements affect the direction the face is looking at, but sprites are being scrolled or moving along the X-axis unexpectedly. Not the effect we want.
+Visual Design:
+  - Color Scheme: Maintaining a black and white aesthetic.
+  - Effects: Planning to add bloom effects and control the intensity of highlights.
+Development Environment:
+  - Tools: Using Vite for bundling, with a well-organized folder structure.
+  - Dependencies: Three.js, GSAP, lil-gui, and others are included as per package.json.
 
-Scene Setup  
-    - Set up the basic 3D environment, including camera, renderer, and points-based geometry.
-    - Ensure that the camera is positioned correctly to view the entire face.
-    - Continuously render the scene using a Three.js renderer for smooth real-time updates.  
+Potential Areas to Address:
 
-Sprite Sheet Integration  
-    - Use a sprite sheet containing images of the face in different directions.
-    - Ensure that each segment of the sprite sheet is aligned, symmetrical, and consistent.
-    - Dynamically select the correct image from the sprite sheet based on mouse movement.
-    - Leverage face symmetry by using images from only one side and mirroring them to represent the opposite direction.  
-
-Displacement Map  
-    - Use a grayscale image to control the Z-axis displacement of the vertices.
-    - Ensure that bright areas push the vertices forward, creating the illusion of depth.
-    - Match the displacement map to the face geometry for accurate 3D depth perception.
-    - Optimize the displacement map’s resolution to balance detail and performance.  
-
-Three.js Points and Geometry  
-    - Use `THREE.Points` to render the face as a cloud of points in 3D space.
-    - Create a buffer geometry with a grid of vertices that corresponds to the face image.
-    - Manipulate the Z-axis of each point using the displacement map to simulate 3D depth.
-    - Ensure that the points are dense enough for smooth deformations while keeping performance in mind.  
-
-Mouse Interaction  
-    - Track the mouse position using event listeners to detect the direction of movement.
-    - Calculate the correct face orientation based on mouse position (X and Y coordinates).
-    - Adjust the face’s direction dynamically by selecting the appropriate section of the sprite sheet.
-    - Provide smooth, real-time feedback, ensuring that the face appears to follow the mouse naturally.  
-
-UV Mapping and Texture Manipulation  
-    - Adjust UV mapping coordinates to select the correct face image from the sprite sheet.
-    - Dynamically update the texture coordinates based on the mouse’s movement.
-    - Use texture mirroring to reduce the number of unique images needed on the sprite sheet.
-    - Ensure that the transitions between face images are seamless for a smooth visual experience.  
-
-Render and Animate  
-    - Continuously render the 3D scene to keep the face animation responsive and in sync with mouse movement.
-    - Smoothly transition between different face orientations as the mouse moves across the screen.
-    - Ensure that the displacement map is applied in real-time, keeping the depth illusion intact.
-    - Optimize the rendering loop to maintain a consistent frame rate, particularly at 60fps or higher for smooth animations.  
-
-Additional Considerations  
-    - Symmetry optimization: Use half of the face images and mirror them to reduce the number of textures.
-    - Performance optimization: Use lower resolution for displacement maps and sprite sheets to maintain performance.
-    - Real-time responsiveness: Prioritize smooth mouse interaction and fast texture updates to avoid lagging in the visual effect.  
+Interactivity Issues:
+  - Sprite Skipping/Misalignment: This could be related to how UV mapping or sprite selection is handled based on mouse movements. Ensuring that the correct sprite is selected and mapped without abrupt changes is crucial.
+Displacement Mapping:
+  - Z-axis Manipulation: Ensuring that the displacement map accurately affects the particles Z-axis positions based on brightness.
+Performance Optimization:
+  - While not an immediate concern, ensuring that the particle density and displacement map resolution are balanced for smooth performance is important.
+Visual Effects:
+  - Bloom Effect: Integrating bloom without affecting performance or the black-and-white aesthetic adversely.
 
 Folder structure:
 .
