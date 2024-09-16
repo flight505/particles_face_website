@@ -54,11 +54,14 @@ void main() {
     sampledColor = texture2D(uSprite2, finalUV);
   }
 
+  // Enhance brightness for glow effect
+  sampledColor.rgb *= 1.5; // Increase brightness
+
   // Apply the sampled texture color
   gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark to create transparency
-  if (gl_FragColor.r < 0.1) {
+  if (gl_FragColor.r < 0.5) {
     discard;
   }
 

@@ -10,6 +10,7 @@ uniform float uNbColumns;
 uniform float uScaleHeightPointSize;
 
 attribute vec3 initPosition;
+attribute float randoms;
 
 varying vec2 vTexCoords;
 
@@ -19,6 +20,7 @@ uniform float uDisplacementScale;  // Intensity of Z-Axis Displacement
 uniform float uSpriteCols;         // Number of columns in the sprite sheet
 uniform float uSpriteRows;         // Number of rows in the sprite sheet
 uniform float uFrameIndex;         // Current frame index
+uniform float uDisplacementBlend;  // New uniform to blend displacement effect
 
 void main() {
   // Calculate normalized UVs based on particle position within the grid
@@ -45,13 +47,8 @@ void main() {
   vec4 spriteData = texture2D(uSpriteSheet, spriteUV);
   float brightness = spriteData.r;
 
-  // Affect the Z-axis based on uProgress for initial animation
-  float displacement = initPosition.z * (1.0 - uProgress);
-
-  // After uProgress is 1, use displacement mapping for Z-axis
-  if (uProgress >= 1.0) {
-    displacement = brightness * uDisplacementScale;
-  }
+  // Blend the displacement effect gradually
+  float displacement = mix(initPosition.z, brightness * uDisplacementScale, uDisplacementBlend);
 
   vec3 transformed = vec3(position.x, position.y, displacement);
 
@@ -59,6 +56,6 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
-  // Adjust point size based on Z-axis for depth perception
-  gl_PointSize = uPointSize * (uScaleHeightPointSize / -mvPosition.z);
+  // Adjust point size based on Z-axis for depth perception and add randomness
+  gl_PointSize = (uPointSize + randoms * 0.9) * (uScaleHeightPointSize / -mvPosition.z);
 }

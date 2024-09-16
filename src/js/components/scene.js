@@ -13,15 +13,12 @@ import {
   Vector2,
   LinearFilter,
   ClampToEdgeWrapping,
+  AdditiveBlending,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
 import LoaderManager from '@/js/managers/LoaderManager'
 import GUI from 'lil-gui'
-import { EffectComposer } from 'postprocessing'
-import { RenderPass } from 'postprocessing'
-import { UnrealBloomPass } from 'postprocessing'
-
 import vertexShader from '@/js/glsl/main.vert'
 import fragmentShader from '@/js/glsl/main.frag'
 import { randFloat } from 'three/src/math/MathUtils'
@@ -29,6 +26,10 @@ import gsap from 'gsap'
 import TouchTexture from './TouchTexture'
 import { sortPoints } from '@/js/utils/three'
 import { isTouch } from '@/js/utils/isTouch'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ChromaticAberrationEffect } from 'postprocessing'
 
 export default class MainScene {
   canvas
@@ -41,7 +42,7 @@ export default class MainScene {
   height
   guiObj = {
     uProgress: 0,
-    pointSize: 1.5,
+    pointSize: 0.5,
   }
 
   constructor() {
@@ -51,14 +52,10 @@ export default class MainScene {
     }
     this.width = window.innerWidth
     this.height = window.innerHeight
-
     // Create touch texture for mouse particles animation
     this.touch = new TouchTexture()
-
     this.currentFrameIndex = 49; // Start with the forward-facing frame
     this.mouse = new Vector2(0, 0); // Initialize mouse at center
-
-
     this.init().catch(error => {
       console.error('Initialization failed:', error)
       // Optionally, display an error message to the user
@@ -75,33 +72,28 @@ export default class MainScene {
 
       await LoaderManager.load(assets)
       console.log('Loaded Textures:', LoaderManager.assets)
-
       this.setStats()
       this.setGUI()
       this.setScene()
-      this.setRender()
+      this.setRender() // Initialize renderer before controls and particles grid
       this.setCamera()
       this.setControls()
       this.setParticlesGrid()
       this.setRaycaster()
-
+      this.setPostProcessing()
       this.handleResize()
+      this.setRender()
 
       // start RAF
       this.events()
-
       this.animateIn()
-      // this.uniforms.uProgress.value = 1.0
     } catch (error) {
       console.error('Error during initialization:', error)
       throw error // Re-throw to be caught in the constructor
     }
   }
 
-  /**
-   * Our Webgl renderer, an object that will draw everything in our canvas
-   * https://threejs.org/docs/?q=rend#api/en/renderers/WebGLRenderer
-   */
+  // Our Webgl renderer, an object that will draw everything in our canvas
   setRender() {
     try {
       this.renderer = new WebGLRenderer({
@@ -110,19 +102,24 @@ export default class MainScene {
       })
       this.renderer.setSize(this.width, this.height)
       this.renderer.setPixelRatio(window.devicePixelRatio || 1)
+      this.renderer.setClearColor('#000000', 1) // Moved setClearColor here
     } catch (error) {
       console.error('Error setting up WebGL renderer:', error)
       throw error
     }
   }
 
-  /**
-   * This is our scene, we'll add any object
-   * https://threejs.org/docs/?q=scene#api/en/scenes/Scene
-   */
+  setPostProcessing() {
+    this.composer = new EffectComposer(this.renderer);
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
+
+    this.bloomPass = new UnrealBloomPass(new Vector2(this.width, this.height), 1.4, 0.9, 0.6);
+    this.composer.addPass(this.bloomPass);
+  }
+
   setScene() {
     this.scene = new Scene()
-    // this.scene.background = new Color(0xffffff)
   }
 
   /**
@@ -174,6 +171,8 @@ export default class MainScene {
 
       const particles = []
       const initPositions = []
+      const randoms = []
+      const colorRandoms = []
       const multiplier = 16
       const nbColumns = 9 * multiplier // 144
       const nbLines = 16 * multiplier  // 256
@@ -195,16 +194,22 @@ export default class MainScene {
 
           particles.push(...point) // Spread the coordinates for Float32Array
           initPositions.push(...initPoint)
+          randoms.push(Math.random())
+          colorRandoms.push(Math.random())
         }
       }
 
       const vertices = new Float32Array(particles)
       const initPositionsFloat = new Float32Array(initPositions)
+      const randomsFloat = new Float32Array(randoms)
+      const colorRandomsFloat = new Float32Array(colorRandoms)
 
       // Add the particles to the array as "position" and "initPosition"
       // itemSize = 3 because there are 3 values (components) per vertex
       geometry.setAttribute('position', new BufferAttribute(vertices, 3))
       geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
+      geometry.setAttribute('randoms', new BufferAttribute(randomsFloat, 1))
+      geometry.setAttribute('colorRandoms', new BufferAttribute(colorRandomsFloat, 1))
 
       geometry.center()
 
@@ -234,6 +239,7 @@ export default class MainScene {
 
         // Displacement uniforms
         uDisplacementScale: { value: 10.0 }, // Adjust this value to control displacement intensity
+        uDisplacementBlend: { value: 0.0 }, // Blend factor for displacement effect
       }
 
       this.updateFrameOffset(this.currentFrameIndex);
@@ -246,6 +252,7 @@ export default class MainScene {
         transparent: true,
         depthTest: false,
         depthWrite: false,
+        blending: AdditiveBlending,
       })
       this.mesh = new Points(geometry, customMaterial)
 
@@ -326,7 +333,7 @@ export default class MainScene {
   }
 
   animateIn() {
-    // Animate progress uniform
+    // Animate progress uniform with smoother easing
     gsap.fromTo(
       this.uniforms.uProgress,
       {
@@ -335,7 +342,11 @@ export default class MainScene {
       {
         value: 1,
         duration: 2.5,
-        ease: 'Power4.easeOut',
+        ease: 'power2.inOut', // Use a smoother easing function
+        onUpdate: () => {
+          // Gradually blend displacement effect
+          this.uniforms.uDisplacementBlend.value = this.uniforms.uProgress.value;
+        }
       }
     );
   }
@@ -416,6 +427,7 @@ export default class MainScene {
     this.uniforms.uTime.value = time * 0.001; // Convert to seconds
 
     this.renderer.render(this.scene, this.camera); // render scene
+    this.composer.render(); // render post-processing
 
     this.touch.update(); // update touch texture
 
@@ -437,6 +449,7 @@ export default class MainScene {
 
     this.renderer.setPixelRatio(this.dpr);
     this.renderer.setSize(this.width, this.height);
+    this.composer.setSize(this.width, this.height);
 
     this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2;
   }
