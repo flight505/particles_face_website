@@ -26,10 +26,8 @@ import gsap from 'gsap'
 import TouchTexture from './TouchTexture'
 import { sortPoints } from '@/js/utils/three'
 import { isTouch } from '@/js/utils/isTouch'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { ChromaticAberrationEffect } from 'postprocessing'
+import { BloomEffect, EffectComposer, RenderPass, EffectPass, BlendFunction } from "postprocessing";
+
 
 export default class MainScene {
   canvas
@@ -110,12 +108,18 @@ export default class MainScene {
   }
 
   setPostProcessing() {
-    this.composer = new EffectComposer(this.renderer);
-    this.renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(this.renderPass);
+    this.composer = new EffectComposer(this.renderer)
+    this.renderPass = new RenderPass(this.scene, this.camera)
+    this.composer.addPass(this.renderPass)
 
-    this.bloomPass = new UnrealBloomPass(new Vector2(this.width, this.height), 1.4, 0.9, 0.6);
-    this.composer.addPass(this.bloomPass);
+    this.bloomEffect = new BloomEffect({
+      blendFunction: BlendFunction.SCREEN,
+      intensity: 1.4,
+      luminanceThreshold: 0.9,
+      luminanceSmoothing: 0.025,
+      mipmapBlur: true
+    })
+    this.composer.addPass(new EffectPass(this.camera, this.bloomEffect))
   }
 
   setScene() {

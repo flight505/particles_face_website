@@ -17,7 +17,7 @@ Completed Features:
   Visual Design:
     - Color Scheme: Maintaining a black and white aesthetic.
     - Blending: AdditiveBlending has been added to enhance particle visuals.
-    - Bloom Effect: UnrealBloomPass has been implemented for bloom effects.
+    - Bloom Effect: BloomEffect has been implemented for bloom effects.
 
 In Progress Features:
   - Chromatic Aberration: Currently adding ChromaticAberrationEffect to enhance visual appeal.
@@ -55,6 +55,9 @@ ERROR HANDLING
   - Use guard clauses to handle preconditions and invalid states early.
   - Implement proper error logging and user-friendly error messages.
   - Consider using custom error types or error factories for consistent error handling.
+
+THREE.JS GUIDELINES
+  - Use from the postprocessing library for post-processing effects.
 
 REACT GUIDELINES
   - Use functional components and interfaces.
