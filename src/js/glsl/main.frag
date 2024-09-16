@@ -65,3 +65,4 @@ void main() {
   // Apply circular opacity mask and animation progress
   gl_FragColor.a = circle(gl_PointCoord, 0.2) * uProgress;
 }
+

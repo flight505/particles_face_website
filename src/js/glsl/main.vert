@@ -1,55 +1,61 @@
-// ===== Filename: src/js/glsl/main.vert =====
-
-// Vertex Shader with Sprite Sheet-Based Z-Axis Displacement
+// Vertex Shader with Only Z-Axis Displacement
 precision mediump float;
 
-// Point Size Uniform
 uniform float uPointSize;
-
-// Animation Progress
 uniform float uProgress;
-
-// Time Uniform (Unused in Current Shader but Kept for Potential Extensions)
 uniform float uTime;
-
-// Touch Texture Sampler (Unused in Current Shader but Kept for Potential Extensions)
 uniform sampler2D uTouch;
-
-// Grid Dimensions
 uniform float uNbLines;
 uniform float uNbColumns;
-
-// Scaling for Point Size Based on Height and Device Pixel Ratio
 uniform float uScaleHeightPointSize;
 
-// Sprite Sheet Uniforms
+attribute vec3 initPosition;
+
+varying vec2 vTexCoords;
+
 uniform sampler2D uSpriteSheet;    // Active Sprite Sheet (sprite1 or sprite2)
 uniform vec2 uTexOffset;           // UV Offset to Select Current Frame
 uniform float uDisplacementScale;  // Intensity of Z-Axis Displacement
-uniform float uSpriteCols;         // Number of Columns in Sprite Sheet
-uniform float uSpriteRows;         // Number of Rows in Sprite Sheet
-
-// Attributes
-attribute vec3 initPosition;
-
-// Varying UV Coordinates to Pass to Fragment Shader
-varying vec2 vTexCoords;
+uniform float uSpriteCols;         // Number of columns in the sprite sheet
+uniform float uSpriteRows;         // Number of rows in the sprite sheet
+uniform float uFrameIndex;         // Current frame index
 
 void main() {
-  // Keep the particle positions static
-  vec3 transformed = position;
-
   // Calculate normalized UVs based on particle position within the grid
   float normalizedX = (position.x + (uNbLines / 2.0)) / float(uNbLines);
   float normalizedY = (position.y + (uNbColumns / 2.0)) / float(uNbColumns);
   vTexCoords = vec2(normalizedX, normalizedY);
 
-  // Use the sprite sheet only for displacement, not for position
-  vec4 spriteData = texture2D(uSpriteSheet, uTexOffset + vTexCoords * vec2(1.0 / uSpriteCols, 1.0 / uSpriteRows));
-  float displacement = spriteData.r * uDisplacementScale * uProgress;
-  transformed.z += displacement;
+  // Calculate frame index and UV offset
+  float framesPerSheet = 50.0;
+  float frameIndex = floor(uFrameIndex);
+  float sheetIndex = floor(frameIndex / framesPerSheet);
+  float frameInSheet = mod(frameIndex, framesPerSheet);
 
-  // Project the transformed vertex position
+  float frameCol = mod(frameInSheet, uSpriteCols);
+  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
+
+  float frameWidth = 1.0 / uSpriteCols;
+  float frameHeight = 1.0 / uSpriteRows;
+
+  vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
+  vec2 spriteUV = frameUVOffset + vTexCoords * vec2(frameWidth, frameHeight);
+
+  // Sample sprite sheet
+  vec4 spriteData = texture2D(uSpriteSheet, spriteUV);
+  float brightness = spriteData.r;
+
+  // Affect the Z-axis based on uProgress for initial animation
+  float displacement = initPosition.z * (1.0 - uProgress);
+
+  // After uProgress is 1, use displacement mapping for Z-axis
+  if (uProgress >= 1.0) {
+    displacement = brightness * uDisplacementScale;
+  }
+
+  vec3 transformed = vec3(position.x, position.y, displacement);
+
+  // Calculate final displaced position
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 

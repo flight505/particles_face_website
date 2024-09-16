@@ -228,6 +228,9 @@ export default class MainScene {
         // New uniform for active sprite sheet in vertex shader
         uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture }, // Initially sprite1
         uTexOffset: { value: new Vector2(0, 0) }, // We'll calculate this in updateFrameOffset
+
+        // Displacement uniforms
+        uDisplacementScale: { value: 10.0 }, // Adjust this value to control displacement intensity
       }
 
       this.updateFrameOffset(this.currentFrameIndex);
@@ -253,15 +256,13 @@ export default class MainScene {
   updateFrameOffset(frameIndex) {
     const framesPerSheet = 50;
     const sheetIndex = Math.floor(frameIndex / framesPerSheet);
-    const frameInSheet = frameIndex % framesPerSheet;
+    let actualFrame = frameIndex % framesPerSheet;
 
-    let actualFrame;
     if (sheetIndex < 1) {
       this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
-      actualFrame = 49 - frameInSheet; // Reverse order for sprite1
+      actualFrame = 49 - actualFrame; // Reverse order for sprite1
     } else {
       this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
-      actualFrame = frameInSheet;
     }
 
     const frameCol = actualFrame % this.uniforms.uSpriteCols.value;
@@ -280,13 +281,21 @@ export default class MainScene {
     const y = -(e.clientY / window.innerHeight) * 2 + 1;
 
     const deltaX = x - this.mouse.x;
-    const frameChangeSpeed = 100.0;
+    const deltaY = y - this.mouse.y;
+    const frameChangeSpeed = 60.0;
 
     this.currentFrameIndex += deltaX * frameChangeSpeed;
     this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, this.uniforms.uTotalFrames.value - 1));
 
     this.mouse.x = x;
     this.mouse.y = y;
+
+    // Use GSAP's quickTo for smoother face rotation
+    const rotateX = gsap.quickTo(this.mesh.rotation, "x", { duration: 0.5, ease: "circ.out" });
+    const rotateY = gsap.quickTo(this.mesh.rotation, "y", { duration: 0.5, ease: "circ.out" });
+
+    rotateX(this.mouse.y * Math.PI / 64); // Adjust rotation based on mouse Y position
+    rotateY(this.mouse.x * Math.PI / 64); // Adjust rotation based on mouse X position
 
     gsap.to(this.uniforms.uFrameIndex, {
       value: this.currentFrameIndex,
@@ -307,6 +316,10 @@ export default class MainScene {
       uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
       this.touch.addTouch(uv);
     }
+
+    // Tilt the particle grid based on mouse Y movement
+    const tiltAngle = deltaY * Math.PI / 4; // Adjust the multiplier for desired tilt sensitivity
+    this.mesh.rotation.x = tiltAngle;
   }
 
   animateIn() {
