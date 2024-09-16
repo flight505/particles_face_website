@@ -1,12 +1,35 @@
-You are an expert in React, Vite, Tailwind CSS, three.js, GASP, Next UI and React three fiber.
+You are an expert in React, Vite, Tailwind CSS, three.js, GSAP, Next UI and React Three Fiber.
 
-INITIAL PROJECT ASSESSMENT
-On starting a new chat or task:
-1. Check for existing <currentTask> in this file.
-2. If it exists, review it to understand the project context, complexity, and current state.
-3. Reply back the latest update <currentTask> <time_stamp>
-  
-Key Principles
+CURRENT TASK <Sep 16 2024 23:45:00>
+Enhancing the 3D Face Animation Effect.
+We have implemented the core functionality and are now adding advanced visual effects and particle movement.
+
+PROJECT UNDERSTANDING
+Completed Features:
+  Scene Setup:
+    - Camera & Renderer: Basic Three.js environment is set up and functioning.
+    - Particle System: Particles are displayed on the scene with a U-progress animation initiating the scene.
+  Assets:
+    - Sprite Sheets: sprite1.jpg (looking left) and sprite2.jpg (looking right) are implemented and working, both grayscale.
+    - Displacement Map: Sprite sheets are successfully used as displacement maps, displacing particles along the Z-axis based on brightness.
+  Interactivity:
+    - Mouse Interaction: Mouse movements successfully affect the direction the face is looking at.
+  Visual Design:
+    - Color Scheme: Maintaining a black and white aesthetic.
+    - Blending: AdditiveBlending has been added to enhance particle visuals.
+    - Bloom Effect: UnrealBloomPass has been implemented for bloom effects.
+
+In Progress Features:
+  - Chromatic Aberration: Currently adding ChromaticAberrationEffect to enhance visual appeal.
+
+Upcoming Features:
+  - Particle Movement: Planning to add dynamic movement to particles so they are not static.
+
+Development Environment:
+  - Tools: Using Vite for bundling, with a well-organized folder structure.
+  - Dependencies: Three.js, GSAP, lil-gui, and others are included as per package.json.
+
+KEY PRINCIPLES
   - Write concise, technical responses with accurate three.js examples.
   - Use functional, declarative programming. Avoid classes.
   - Prefer iteration and modularization over duplication.
@@ -14,27 +37,26 @@ Key Principles
   - Use lowercase with dashes for directories (e.g., components/auth-wizard).
   - Favor named exports for components.
   - Use the Receive an Object, Return an Object (RORO) pattern.
-  
-JavaScript
+
+JAVASCRIPT GUIDELINES
   - Use "function" keyword for pure functions. Omit semicolons.
   - Use TypeScript for all code. Prefer interfaces over types. Avoid enums, use maps.
   - File structure: Exported component, subcomponents, helpers, static content, types.
   - Avoid unnecessary curly braces in conditional statements.
   - For single-line statements in conditionals, omit curly braces.
   - Use concise, one-line syntax for simple conditional statements (e.g., if (condition) doSomething()).
-  
-Error Handling and Validation
-    - Prioritize error handling and edge cases:
-    - Handle errors and edge cases at the beginning of functions.
-    - Use early returns for error conditions to avoid deeply nested if statements.
-    - Place the happy path last in the function for improved readability.
-    - Avoid unnecessary else statements; use if-return pattern instead.
-    - Use guard clauses to handle preconditions and invalid states early.
-    - Implement proper error logging and user-friendly error messages.
-    - Consider using custom error types or error factories for consistent error handling.
 
-  
-React
+ERROR HANDLING
+  - Prioritize error handling and edge cases.
+  - Handle errors and edge cases at the beginning of functions.
+  - Use early returns for error conditions to avoid deeply nested if statements.
+  - Place the happy path last in the function for improved readability.
+  - Avoid unnecessary else statements; use if-return pattern instead.
+  - Use guard clauses to handle preconditions and invalid states early.
+  - Implement proper error logging and user-friendly error messages.
+  - Consider using custom error types or error factories for consistent error handling.
+
+REACT GUIDELINES
   - Use functional components and interfaces.
   - Use declarative JSX.
   - Use function, not const, for components.
@@ -51,37 +73,7 @@ React
   - Use useActionState with react-hook-form for form validation.
   - Always throw user-friendly errors that tanStackQuery can catch and show to the user.
 
-
-<currentTask> <Sep 15 22:35:00>
-
-Creating the 3D Face Animation Effect.
-In the provided 3JS scene, we can observe a particles, which appears on the scene (uProgress). Image is projected on to the particles. 
-
-This guide provides a detailed breakdown of how to create a 3D face animation effect using Three.js, with an emphasis on understanding the techniques required and the steps necessary to implement it effectively. The goal is to create a visual effect where a face follows the movement of the mouse, using displacement maps, sprite sheets, and point-based geometry manipulation. Our main file is scene.js
-
-Current Understanding:
-
-Scene Setup:
-  - Camera & Renderer: Basic Three.js environment is set up and functioning.
-  - Particle System: Particles are displayed on the scene with a U-progress animation initiating the scene.
-Assets:
-  - Sprite Sheets: sprite1.jpg (looking left) and sprite2.jpg (looking right) are used, both grayscale.
-  - Use Sprite Sheets as Displacement Map: Black and white colors are used to displace particles along the Z-axis based on their brightness.
-Interactivity:
-  - Mouse Interaction: Mouse movements affect the direction the face is looking at. 
-Visual Design:
-  - Color Scheme: Maintaining a black and white aesthetic.
-  - Effects: Planning to add bloom effects and control the intensity of highlights.
-Development Environment:
-  - Tools: Using Vite for bundling, with a well-organized folder structure.
-  - Dependencies: Three.js, GSAP, lil-gui, and others are included as per package.json.
-
-Potential Areas to Address:
-  - Displacement Mapping:
-    - Z-axis Manipulation: Ensuring that the displacement map accurately affects the particles Z-axis positions based on brightness.
-  - Visual Effects, add Bloom Effect, Integrating bloom without affecting performance or the black-and-white aesthetic adversely.
-
-Folder structure:
+FOLDER STRUCTURE
 .
 ├── output.txt
 ├── package-lock.json
