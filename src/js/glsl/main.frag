@@ -57,11 +57,15 @@ void main() {
   // Enhance brightness for glow effect
   sampledColor.rgb *= 1.5; // Increase brightness
 
+  // Add a subtle color tint
+  // vec3 colorTint = vec3(0.8, 0.9, 1.0); // Light blue tint
+  // sampledColor.rgb *= colorTint;
+
   // Apply the sampled texture color
   gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark to create transparency
-  if (gl_FragColor.r < 0.5) {
+  if (gl_FragColor.r < 0.1) {
     discard;
   }
 

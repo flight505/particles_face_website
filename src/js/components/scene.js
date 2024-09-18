@@ -26,7 +26,7 @@ import gsap from 'gsap'
 import TouchTexture from './TouchTexture'
 import { sortPoints } from '@/js/utils/three'
 import { isTouch } from '@/js/utils/isTouch'
-import { BloomEffect, EffectComposer, RenderPass, EffectPass, BlendFunction } from "postprocessing";
+import { BloomEffect, ChromaticAberrationEffect, EffectComposer, RenderPass, EffectPass, BlendFunction } from "postprocessing";
 
 
 export default class MainScene {
@@ -64,8 +64,8 @@ export default class MainScene {
     try {
       // Preload assets before initiating the scene
       const assets = [
-        { name: 'sprite1', texture: './img/sprite1.jpg', flipY: true },
-        { name: 'sprite2', texture: './img/sprite2.jpg', flipY: true },
+        { name: 'sprite1', texture: './img/right1_sprite_sheet.jpg', flipY: true },
+        { name: 'sprite2', texture: './img/left1_sprite_sheet.jpg', flipY: true },
       ]
 
       await LoaderManager.load(assets)
@@ -116,10 +116,18 @@ export default class MainScene {
       blendFunction: BlendFunction.SCREEN,
       intensity: 1.4,
       luminanceThreshold: 0.9,
+      radius: 0.8,
       luminanceSmoothing: 0.025,
       mipmapBlur: true
     })
-    this.composer.addPass(new EffectPass(this.camera, this.bloomEffect))
+
+    this.chromaticAberrationEffect = new ChromaticAberrationEffect({
+      offset: new Vector2(0.001, 0.001), // Adjust the offset as needed
+      radialModulation: true,
+      modulationOffset: 0.15
+    })
+
+    this.composer.addPass(new EffectPass(this.camera, this.bloomEffect, this.chromaticAberrationEffect))
   }
 
   setScene() {

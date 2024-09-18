@@ -13,6 +13,12 @@ dist-ssr
 *.local
 .env
 
+# Only commit .py files from py_scripts/
+py_scripts/*
+!py_scripts/*.py
+
+# Ignore any folder in weights/
+weights/*
 
 # Editor directories and files
 .vscode/*
