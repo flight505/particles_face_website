@@ -2,7 +2,7 @@ import cv2
 import os
 
 # Path to your video file
-video_path = "your_video.mp4"
+video_path = "/Users/jespervang/Downloads/left1.mov"
 
 # Create a directory to save the frames
 output_dir = "frames"
