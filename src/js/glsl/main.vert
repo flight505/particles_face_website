@@ -97,9 +97,9 @@ void main() {
   vec3 transformed = vec3(position.x + sideToSideMovement, position.y, displacement);
 
   // Calculate final displaced position
-  vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.5); // Adjusted scale factor, moves the particles away from the camera
+  vec4 mvPosition = modelViewMatrix * vec4(transformed, 2.5); // Adjusted scale factor, moves the particles away from the camera
   gl_Position = projectionMatrix * mvPosition;
 
   // Adjust point size based on Z-axis for depth perception and add randomness
-  gl_PointSize = (uPointSize + randoms * 1.0) * (uScaleHeightPointSize / -mvPosition.z);
+  gl_PointSize = (uPointSize + randoms * 0.5) * (uScaleHeightPointSize / -mvPosition.z);
 }

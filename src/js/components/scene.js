@@ -250,7 +250,7 @@ export default class MainScene {
         uTexOffset: { value: new Vector2(0, 0) }, // We'll calculate this in updateFrameOffset
 
         // Displacement uniforms
-        uDisplacementScale: { value: 10.0 }, // Adjust this value to control displacement intensity
+        uDisplacementScale: { value: 40.0 }, // Adjust this value to control displacement intensity
         uDisplacementBlend: { value: 0.0 }, // Blend factor for displacement effect
       }
 

@@ -65,7 +65,7 @@ void main() {
   gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark to create transparency
-  if (gl_FragColor.r < 0.1) {
+  if (gl_FragColor.r < 0.15) {
     discard;
   }
 
