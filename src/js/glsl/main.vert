@@ -93,13 +93,13 @@ void main() {
   float displacement = mix(initPosition.z, brightness * uDisplacementScale, uDisplacementBlend);
 
   // Add subtle side-to-side movement
-  float sideToSideMovement = sin(uTime + position.y * 0.05) * 1.0; // Adjust amplitude as needed
+  float sideToSideMovement = sin(uTime + position.y * 1.5) * 0.3; // Increased vertical frequency
   vec3 transformed = vec3(position.x + sideToSideMovement, position.y, displacement);
 
   // Calculate final displaced position
-  vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+  vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.5); // Adjusted scale factor, moves the particles away from the camera
   gl_Position = projectionMatrix * mvPosition;
 
   // Adjust point size based on Z-axis for depth perception and add randomness
-  gl_PointSize = (uPointSize + randoms * 0.5) * (uScaleHeightPointSize / -mvPosition.z);
+  gl_PointSize = (uPointSize + randoms * 1.0) * (uScaleHeightPointSize / -mvPosition.z);
 }

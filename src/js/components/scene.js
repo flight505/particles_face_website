@@ -185,7 +185,7 @@ export default class MainScene {
       const initPositions = []
       const randoms = []
       const colorRandoms = []
-      const multiplier = 16
+      const multiplier = 24
       const nbColumns = 9 * multiplier // 144
       const nbLines = 16 * multiplier  // 256
 
