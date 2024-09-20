@@ -55,7 +55,7 @@ void main() {
   }
 
   // Enhance brightness for glow effect
-  sampledColor.rgb *= 1.5; // Increase brightness
+  sampledColor.rgb *= 1.0; // Increase brightness
 
   // Add a subtle color tint
   // vec3 colorTint = vec3(0.8, 0.9, 1.0); // Light blue tint
@@ -65,11 +65,11 @@ void main() {
   gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark to create transparency
-  if (gl_FragColor.r < 0.15) {
+  if (gl_FragColor.r < 0.5) {
     discard;
   }
 
   // Apply circular opacity mask and animation progress
-  gl_FragColor.a = circle(gl_PointCoord, 0.2) * uProgress;
+  gl_FragColor.a = circle(gl_PointCoord, 0.5) * uProgress;
 }
 
