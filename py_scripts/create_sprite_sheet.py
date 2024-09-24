@@ -59,9 +59,12 @@ def create_sprite_sheet(
 
 
 if __name__ == "__main__":
-    input_folder = "py_scripts/output_right1_frames"
-    output_file = "py_scripts/right1_sprite_sheet.png"
+    input_folder = "py_scripts/output_left1_frames"
+    output_file = "py_scripts/left1_sprite_sheet.png"
     background_image_path = (
         "py_scripts/300x170background.png"  # Ensure this is 300x170 pixels
     )
-    create_sprite_sheet(input_folder, output_file, background_image_path)
+    create_sprite_sheet(
+        input_folder,
+        output_file,
+    )

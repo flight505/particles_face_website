@@ -12,6 +12,7 @@ import {
   Raycaster,
   Vector2,
   AdditiveBlending,
+  PointLight, // Added PointLight
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
@@ -30,6 +31,9 @@ import {
   RenderPass,
   EffectPass,
   BlendFunction,
+  HueSaturationEffect,
+  SMAAEffect,
+  SMAAPreset,
 } from 'postprocessing'
 
 // The MainScene class is a Three.js-based scene manager. It initializes various properties such as canvas, renderer, scene,
@@ -66,8 +70,8 @@ export default class MainScene {
     try {
       // Preload assets
       const assets = [
-        { name: 'sprite1', texture: './img/right1_sprite_sheet.jpg', flipY: true },
-        { name: 'sprite2', texture: './img/left1_sprite_sheet.jpg', flipY: true },
+        { name: 'sprite1', texture: './img/right1_sprite_sheet.png', flipY: true },
+        { name: 'sprite2', texture: './img/left1_sprite_sheet.png', flipY: true },
       ]
 
       await LoaderManager.load(assets)
@@ -81,8 +85,9 @@ export default class MainScene {
       this.setCamera()
       this.setControls()
       this.setParticlesGrid()
-      this.setRaycaster()
+      this.setRaycaster() // Ensure setRaycaster is called
       this.setPostProcessing()
+      this.setLights() // Ensure lights are set up
       this.handleResize()
 
       // Start rendering
@@ -157,7 +162,7 @@ export default class MainScene {
     const initPositions = []
     const randoms = []
     const colorRandoms = []
-    const multiplier = 24
+    const multiplier = 28
     const nbColumns = 9 * multiplier // 144 columns
     const nbLines = 16 * multiplier  // 384 lines
 
@@ -222,7 +227,7 @@ export default class MainScene {
       uTexOffset: { value: new Vector2(0, 0) },
 
       // Displacement uniforms
-      uDisplacementScale: { value: 40.0 }, // Controls Z-axis displacement intensity
+      uDisplacementScale: { value: 30.0 }, // Controls Z-axis displacement intensity
       uDisplacementBlend: { value: 0.0 },  // Blend factor for displacement effect
     }
   }
@@ -264,25 +269,41 @@ export default class MainScene {
     console.log(`Frame: ${frameIndex}, Sheet: ${sheetIndex}, Actual Frame: ${actualFrame}, Offset: (${uOffset}, ${vOffset})`)
   }
 
-  handleMouseMove = (e) => {
-    const x = (e.clientX / window.innerWidth) * 2 - 1
-    const y = -(e.clientY / window.innerHeight) * 2 + 1
+  handleMouseMove = (event) => {
+    const mouseX = (event.clientX / window.innerWidth) * 2 - 1
+    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1
 
-    const deltaX = x - this.mouse.x
-    const deltaY = y - this.mouse.y
+    // Debugging logs
+    console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY)
+    console.log('Mesh:', this.mesh)
+
+    // Remove position changes to keep the grid in place
+    /*
+    if (this.mesh && this.mesh.position) {
+      this.mesh.position.x = mouseX * 10 // Adjust multiplier as needed
+      this.mesh.position.y = mouseY * 10 // Adjust multiplier as needed
+    } else {
+      console.error('Mesh or mesh position is undefined')
+    }
+    */
+
+    const deltaX = mouseX - this.mouse.x
+    const deltaY = mouseY - this.mouse.y
     const frameChangeSpeed = 60.0
 
     this.currentFrameIndex += deltaX * frameChangeSpeed
     this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, this.uniforms.uTotalFrames.value - 1))
 
-    this.mouse.x = x
-    this.mouse.y = y
+    this.mouse.x = mouseX
+    this.mouse.y = mouseY
 
+    // Initialize GSAP quickTo for smooth rotation
     const rotateX = gsap.quickTo(this.mesh.rotation, 'x', { duration: 0.5, ease: 'circ.out' })
     const rotateY = gsap.quickTo(this.mesh.rotation, 'y', { duration: 0.5, ease: 'circ.out' })
 
-    rotateX(this.mouse.y * Math.PI / 64)
-    rotateY(this.mouse.x * Math.PI / 64)
+    // Apply rotation based on mouse movement
+    rotateX(this.mouse.y * Math.PI / 64) // Tilt up/down
+    rotateY(this.mouse.x * Math.PI / 64) // Turn left/right
 
     gsap.to(this.uniforms.uFrameIndex, {
       value: this.currentFrameIndex,
@@ -298,13 +319,22 @@ export default class MainScene {
 
     if (this.intersects.length) {
       const uv = new Vector2(0.5, 0.5)
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
+      uv.x = (this.intersects[0].point.x / this.nbLines) + 0.5
+      uv.y = (this.intersects[0].point.y / this.nbColumns) + 0.5
       this.touch.addTouch(uv)
     }
 
+    // Remove direct rotation.x assignment to avoid conflicts with GSAP
+    /*
     const tiltAngle = deltaY * Math.PI / 4
     this.mesh.rotation.x = tiltAngle
+    */
+
+    // Update light position based on mouse movement
+    if (this.light) {
+      this.light.position.x = -this.mouse.x * 10
+      this.light.position.y = this.mouse.y * 10
+    }
   }
 
   animateIn() {
@@ -362,6 +392,86 @@ export default class MainScene {
     this.draw(0)
   }
 
+  handleTouchMove = (e) => {
+    this.ray.setFromCamera(this.mouse, this.camera)
+    this.intersects = this.ray.intersectObjects([this.mesh])
+
+    if (this.intersects.length) {
+      const uv = new Vector2(0.5, 0.5)
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
+      this.touch.addTouch(uv)
+    }
+  }
+
+  setRaycaster() {
+    this.ray = new Raycaster()
+    this.mouse = new Vector2()
+
+    if (isTouch()) {
+      window.addEventListener('touchmove', this.handleTouchMove)
+    }
+  }
+
+  setPostProcessing() {
+    this.composer = new EffectComposer(this.renderer)
+    this.renderPass = new RenderPass(this.scene, this.camera)
+    this.composer.addPass(this.renderPass)
+
+    // Create multiple BloomEffect instances with different intensities
+    const bloom1 = new BloomEffect({
+      blendFunction: BlendFunction.SCREEN,
+      intensity: 1.9,
+      luminanceThreshold: 0.1,
+      radius: 1.1,
+      luminanceSmoothing: 0.15,
+      mipmapBlur: true,
+    })
+
+    const bloom2 = new BloomEffect({
+      blendFunction: BlendFunction.SCREEN,
+      intensity: 3.2,
+      luminanceThreshold: 0.1,
+      radius: 0.5,
+      luminanceSmoothing: 0.15,
+      mipmapBlur: true,
+    })
+
+    const bloom3 = new BloomEffect({
+      blendFunction: BlendFunction.SCREEN,
+      intensity: 1.2,
+      luminanceThreshold: 0.1,
+      radius: 0.5,
+      luminanceSmoothing: 0.15,
+      mipmapBlur: true,
+    })
+
+    this.chromaticAberrationEffect = new ChromaticAberrationEffect({
+      offset: new Vector2(0.001, 0.001),
+      radialModulation: true,
+      modulationOffset: 0.15,
+    })
+
+    this.hueSaturationEffect = new HueSaturationEffect({
+      hue: -0.1,
+      saturation: 0.25,
+    })
+
+    this.smaaAliasEffect = new SMAAEffect({ preset: SMAAPreset.ULTRA })
+
+    // Add bloom and hue/saturation effects to the first EffectPass
+    this.composer.addPass(new EffectPass(this.camera, bloom1, bloom2, bloom3, this.hueSaturationEffect, this.smaaAliasEffect))
+
+    // Add chromatic aberration effect to a separate EffectPass
+    this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect))
+  }
+
+  setLights() {
+    this.light = new PointLight(0xffffff, 1) // Corrected usage
+    this.light.position.set(0, 0, 100)
+    this.scene.add(this.light)
+  }
+
   draw = (time) => {
     if (this.stats) this.stats.begin()
 
@@ -390,51 +500,5 @@ export default class MainScene {
     this.composer.setSize(this.width, this.height)
 
     this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
-  }
-
-  setRaycaster() {
-    this.ray = new Raycaster()
-    this.mouse = new Vector2()
-
-    if (isTouch()) {
-      window.addEventListener('touchmove', this.handleTouchMove)
-    } else {
-      window.addEventListener('mousemove', this.handleMouseMove)
-    }
-  }
-
-  handleTouchMove = (e) => {
-    this.ray.setFromCamera(this.mouse, this.camera)
-    this.intersects = this.ray.intersectObjects([this.mesh])
-
-    if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5)
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
-      this.touch.addTouch(uv)
-    }
-  }
-
-  setPostProcessing() {
-    this.composer = new EffectComposer(this.renderer)
-    this.renderPass = new RenderPass(this.scene, this.camera)
-    this.composer.addPass(this.renderPass)
-
-    this.bloomEffect = new BloomEffect({
-      blendFunction: BlendFunction.SCREEN,
-      intensity: 0.1,
-      luminanceThreshold: 0.9,
-      radius: 0.8,
-      luminanceSmoothing: 0.15,
-      mipmapBlur: true,
-    })
-
-    this.chromaticAberrationEffect = new ChromaticAberrationEffect({
-      offset: new Vector2(0.001, 0.001),
-      radialModulation: true,
-      modulationOffset: 0.15,
-    })
-
-    this.composer.addPass(new EffectPass(this.camera, this.bloomEffect, this.chromaticAberrationEffect))
   }
 }

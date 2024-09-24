@@ -55,21 +55,21 @@ void main() {
   }
 
   // Enhance brightness for glow effect
-  sampledColor.rgb *= 1.0; // Increase brightness
+  sampledColor.rgb *= 0.8; // Increase brightness
 
-  // Add a subtle color tint
-  // vec3 colorTint = vec3(0.8, 0.9, 1.0); // Light blue tint
-  // sampledColor.rgb *= colorTint;
+  // Add a neon green color tint
+  vec3 colorTint = vec3(250.0 / 255.0, 255.0 / 255.0, 0.0 / 255.0); // Converted #F0FF00 to RGB
+  sampledColor.rgb = mix(sampledColor.rgb, colorTint, 0.9); // Blend the sampled color with the neon green tint
 
   // Apply the sampled texture color
   gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark to create transparency
-  if (gl_FragColor.r < 0.5) {
+  if (gl_FragColor.r < 0.55) {
     discard;
   }
 
   // Apply circular opacity mask and animation progress
-  gl_FragColor.a = circle(gl_PointCoord, 0.5) * uProgress;
+  gl_FragColor.a = circle(gl_PointCoord, 0.01) * uProgress;
 }
 
