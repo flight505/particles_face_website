@@ -31,11 +31,9 @@ import {
   RenderPass,
   EffectPass,
   BlendFunction,
-  HueSaturationEffect,
   SMAAEffect,
   SMAAPreset,
   GlitchEffect,
-  EdgeDetectionMode,
 } from 'postprocessing'
 
 export default class MainScene {
