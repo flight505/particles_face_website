@@ -60,7 +60,8 @@ body {
     cursor: none;
     position: fixed;
     z-index: 5002;
-    display: block;
+    justify-content: space-around; // Distribute space evenly
+    align-items: center; // Center items vertically
     width: 100vw;
     height: 100vh;
     background-color: #121212;
@@ -156,5 +157,16 @@ section {
         &:hover {
             background-color: #45a049;
         }
+    }
+}
+
+// Add media query for smaller screens
+@media (max-width: 768px) {
+    .homeloaderblack {
+        flex-direction: column; // Stack vertically on small screens
+    }
+
+    .target {
+        margin: 10px 0; // Add some vertical spacing between items
     }
 }

@@ -58,18 +58,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const angle = Math.atan2(targetCenter.y - cursorPosition.y, targetCenter.x - cursorPosition.x)
             const distanceRatio = closestDistance / (rect.width / 2)
 
+            // Damping factor to reduce movement (adjust as needed)
+            const dampingFactor = 0.8
+
             gsap.to(cursor, {
-                left: targetCenter.x,
-                top: targetCenter.y,
+                left: targetCenter.x - Math.cos(angle) * closestDistance * 0.5,
+                top: targetCenter.y - Math.sin(angle) * closestDistance * 0.5,
                 height: rect.height,
                 width: rect.width,
                 duration: 0.2
             })
 
             gsap.to(closestTarget.querySelector(".text"), {
-                x: 0,
-                y: 0,
-                scale: 1.1,
+                x: -Math.cos(angle) * closestDistance * 0.5 * distanceRatio * dampingFactor,
+                y: -Math.sin(angle) * closestDistance * 0.5 * distanceRatio * dampingFactor,
                 duration: 0.2
             })
         } else {
@@ -85,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 gsap.to(target.querySelector(".text"), {
                     x: 0,
                     y: 0,
-                    scale: 1,
                     duration: 0.2
                 })
             })
