@@ -1,5 +1,5 @@
 // Vertex Shader with Z-Axis Displacement and Row Distortion
-precision mediump float;
+precision highp float;
 
 uniform float uPointSize;
 uniform float uProgress;
@@ -150,23 +150,19 @@ void main() {
   vec3 transformed = mix(position, initPosition, uDispersion);
   transformed.z += displacement;
 
-  // Add subtle movement
-  transformed.x += sin(uTime + transformed.y * 1.5) * 0.3;
-  transformed.y += sin(uTime * 0.5 + transformed.x) * 0.1;
-
-  // Apply noise-based distortion
-  vec3 noiseInput = vec3(transformed.xy * 0.1, uTime * 0.1);
+  // Reduce noise effect
+  vec3 noiseInput = vec3(transformed.xy * 0.05, uTime * 0.05);
   transformed += vec3(
     snoise(noiseInput),
     snoise(noiseInput + 100.0),
     snoise(noiseInput + 200.0)
-  ) * 0.5;
+  ) * 0.2;
 
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
-  // Simplified point size calculation
-  gl_PointSize = (uPointSize + randoms * 0.5) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
+  // Increase point size
+  gl_PointSize = (uPointSize * 1.5 + randoms * 0.5) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
 
   // Set the alpha to 0 for invisible particles
   vAlpha = visibility;

@@ -16,6 +16,7 @@ body {
 }
 
 .title-container {
+    display: true; // Hide the yellow title
     position: fixed;
     top: 0;
     left: 0;
@@ -28,8 +29,8 @@ body {
 .title {
     font-size: 4rem;
     font-weight: 700;
-    color: #F0FF00;
-    text-shadow: 0 0 10px rgba(240, 255, 0, 0.5);
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(165, 235, 246, 0.5);
     margin: 0;
     text-align: center;
     letter-spacing: 2px;
@@ -39,11 +40,11 @@ body {
 
 @keyframes titlePulse {
     from {
-        text-shadow: 0 0 10px rgba(240, 255, 0, 0.5);
+        text-shadow: 0 0 10px rgba(165, 235, 246, 0.5);
     }
 
     to {
-        text-shadow: 0 0 20px rgba(240, 255, 0, 0.8), 0 0 30px rgba(240, 255, 0, 0.6);
+        text-shadow: 0 0 20px rgba(165, 235, 246, 0.8), 0 0 30px rgba(165, 235, 246, 0.6);
     }
 }
 
@@ -71,7 +72,7 @@ body {
 
 .text {
     position: relative;
-    color: #F0FF00;
+    color: #ffffff;
     margin: 0;
     flex: auto;
     user-select: none;
@@ -84,7 +85,7 @@ body {
     border-radius: 100%;
     width: 0px;
     height: 0px;
-    border: solid 1px #F0FF00;
+    border: solid 1px #ffffff;
     -webkit-box-sizing: border-box;
     box-sizing: border-box;
     position: absolute;

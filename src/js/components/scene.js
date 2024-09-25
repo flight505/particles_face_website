@@ -36,6 +36,9 @@ import {
   SMAAEffect,
   SMAAPreset,
   GlitchEffect,
+  VignetteEffect,
+  NoiseEffect,
+  GlitchMode,
 } from 'postprocessing'
 
 export default class MainScene {
@@ -174,9 +177,9 @@ export default class MainScene {
     const initPositions = []
     const randoms = []
     const colorRandoms = []
-    const multiplier = 28
-    this.nbColumns = 9 * multiplier
-    this.nbLines = 16 * multiplier
+    const multiplier = 12 // Adjust the multiplier for more particles
+    this.nbColumns = 18 * multiplier
+    this.nbLines = 32 * multiplier
 
     const halfColumn = this.nbColumns / 2
     const halfLines = this.nbLines / 2
@@ -188,7 +191,6 @@ export default class MainScene {
         const z = 0
         particles.push(x, y, z)
 
-        // Reduce the spread of initial positions for better performance
         initPositions.push(
           x + randFloat(-50, 50),
           y + randFloat(-50, 50),
@@ -225,7 +227,7 @@ export default class MainScene {
       uTime: { value: 0.0 },
       uTouch: { value: this.touch.texture },
       uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
-      uFrameIndex: { value: this.currentFrameIndex },
+      uFrameIndex: { value: 0.0 }, // Explicitly use 0.0 to ensure it's a float
       uSpriteCols: { value: 5 },
       uSpriteRows: { value: 10 },
       uTotalFrames: { value: 100 },
@@ -237,8 +239,9 @@ export default class MainScene {
       uDisplacementBlend: { value: 0.0 },
       uDispersion: { value: 1.0 },
       uDistortionFrequency: { value: 0.1 },
-      uDistortionAmplitude: { value: 0.0 },
+      uDistortionAmplitude: { value: 1.0 },
       uRandomSeed: { value: Math.random() * 100 },
+      uResolution: { value: new Vector2(this.width, this.height) },
     }
   }
 
@@ -413,52 +416,53 @@ export default class MainScene {
   }
 
   setPostProcessing() {
-    this.composer = new EffectComposer(this.renderer)
-    this.renderPass = new RenderPass(this.scene, this.camera)
-    this.composer.addPass(this.renderPass)
+    this.composer = new EffectComposer(this.renderer);
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
 
-    const bloom1 = new BloomEffect({
-      blendFunction: BlendFunction.SCREEN,
-      intensity: 1.2,
-      luminanceThreshold: 0.9,
-      radius: 0.7,
-      luminanceSmoothing: 0.3,
-      mipmapBlur: true,
-    })
+    // Bloom effect
+    const bloomEffect = new BloomEffect({
+      intensity: 2.5,
+      luminanceThreshold: 0.05,
+      luminanceSmoothing: 0.7,
+      blendFunction: BlendFunction.SCREEN
+    });
 
-    const bloom2 = new BloomEffect({
-      blendFunction: BlendFunction.SCREEN,
-      intensity: 1.4,
-      luminanceThreshold: 0.6,
-      radius: 0.5,
-      luminanceSmoothing: 0.25,
-      mipmapBlur: true,
-    })
-
-    const bloom3 = new BloomEffect({
-      blendFunction: BlendFunction.SCREEN,
-      intensity: 1.1,
-      luminanceThreshold: 0.2,
-      radius: 0.4,
-      luminanceSmoothing: 0.2,
-      mipmapBlur: true,
-    })
-
+    // Chromatic aberration effect
     this.chromaticAberrationEffect = new ChromaticAberrationEffect({
-      offset: new Vector2(0.06, 0.06),
-      radialModulation: true,
-      modulationOffset: 0.7,
-    })
+      offset: new Vector2(0.005, 0.005),
+    });
 
+    // Glitch effect
+    this.glitchEffect = new GlitchEffect({
+      chromaticAberrationOffset: new Vector2(3, 3),
+      delay: new Vector2(1.5, 3.5),
+      duration: new Vector2(0.2, 0.4),
+      strength: new Vector2(0.3, 1.0),
+      mode: GlitchMode.CONSTANT_WILD
+    });
 
-    this.smaaEffect = new SMAAEffect({
-      preset: SMAAPreset.ULTRA,
-    })
+    // Vignette effect
+    const vignetteEffect = new VignetteEffect({
+      eskil: false,
+      offset: 0.1,
+      darkness: 0.7
+    });
 
-    this.composer.addPass(new EffectPass(this.camera, bloom1, bloom2, bloom3, this.smaaEffect))
-    this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect))
-    this.glitchEffect = new GlitchEffect({ delay: new Vector2(2.5, 8.5) })
-    this.composer.addPass(new EffectPass(this.camera, this.glitchEffect))
+    // Noise effect
+    const noiseEffect = new NoiseEffect({
+      blendFunction: BlendFunction.OVERLAY,
+      premultiply: true
+    });
+    noiseEffect.blendMode.opacity.value = 0.15;
+
+    const smaaEffect = new SMAAEffect();
+
+    // Add effects in separate passes
+    this.composer.addPass(new EffectPass(this.camera, bloomEffect));
+    this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect));
+    this.composer.addPass(new EffectPass(this.camera, vignetteEffect, noiseEffect, smaaEffect));
+    this.composer.addPass(new EffectPass(this.camera, this.glitchEffect));
   }
 
   setLights() {
@@ -516,7 +520,7 @@ export default class MainScene {
     if (this.stats) this.stats.end()
     this.raf = window.requestAnimationFrame(this.draw)
 
-    // Update random seed periodically for variety in special rows
+    // Update random seed periodically for variety in distortion
     if (Math.random() < 0.01) { // Change seed roughly every 100 frames
       this.uniforms.uRandomSeed.value = Math.random() * 100
     }
@@ -534,5 +538,6 @@ export default class MainScene {
     this.composer.setSize(this.width, this.height)
 
     this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
+    this.uniforms.uResolution.value.set(this.width, this.height)
   }
 }
