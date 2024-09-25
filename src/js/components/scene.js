@@ -1,7 +1,6 @@
 // Importing necessary modules and libraries
 
 import {
-  Color,
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
@@ -12,12 +11,11 @@ import {
   Raycaster,
   Vector2,
   AdditiveBlending,
-  PointLight, // Added PointLight
+  PointLight,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
 import LoaderManager from '@/js/managers/LoaderManager'
-import GUI from 'lil-gui'
 import vertexShader from '@/js/glsl/main.vert'
 import fragmentShader from '@/js/glsl/main.frag'
 import randomVertexShader from '@/js/glsl/random.vert'
@@ -36,11 +34,9 @@ import {
   HueSaturationEffect,
   SMAAEffect,
   SMAAPreset,
-  DotScreenEffect, // Corrected import
-  GlitchEffect, // Corrected import
+  GlitchEffect,
 } from 'postprocessing'
 
-// The MainScene class is a Three.js-based scene manager. It initializes various properties such as canvas, renderer, scene,
 export default class MainScene {
   canvas
   renderer
@@ -50,12 +46,8 @@ export default class MainScene {
   stats
   width
   height
-  guiObj = {
-    uProgress: 0,
-    pointSize: 0.5,
-  }
-  mouse = new Vector2(0, 0) // Initialize mouse position
-  currentFrameIndex = 49 // Start with the forward-facing frame
+  mouse = new Vector2(0, 0)
+  currentFrameIndex = 49
   dotScreenEffect
   glitchEffect
 
@@ -74,7 +66,6 @@ export default class MainScene {
 
   init = async () => {
     try {
-      // Preload assets
       const assets = [
         { name: 'sprite1', texture: './img/right1_sprite_sheet.png', flipY: true },
         { name: 'sprite2', texture: './img/left1_sprite_sheet.png', flipY: true },
@@ -83,22 +74,22 @@ export default class MainScene {
       await LoaderManager.load(assets)
       console.log('Loaded Textures:', LoaderManager.assets)
 
-      // Initialize components
       this.setStats()
-      this.setGUI()
       this.setScene()
       this.setRenderer()
       this.setCamera()
       this.setControls()
       this.setParticlesGrid()
-      this.setRaycaster() // Ensure setRaycaster is called
+      this.setRaycaster()
       this.setPostProcessing()
-      this.setLights() // Ensure lights are set up
+      this.setLights()
       this.handleResize()
 
-      // Start rendering
       this.events()
       this.animateIn()
+
+      // Start the animation loop after initialization
+      this.draw(0)
     } catch (error) {
       console.error('Error during initialization:', error)
       throw error
@@ -110,10 +101,15 @@ export default class MainScene {
       this.renderer = new WebGLRenderer({
         canvas: this.canvas,
         antialias: true,
+        alpha: true,
       })
       this.renderer.setSize(this.width, this.height)
-      this.renderer.setPixelRatio(window.devicePixelRatio || 1)
-      this.renderer.setClearColor('#000000', 1)
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      this.renderer.setClearColor(0x000000, 0)
+      this.renderer.domElement.style.position = 'fixed'
+      this.renderer.domElement.style.top = '0'
+      this.renderer.domElement.style.left = '0'
+      this.renderer.domElement.style.zIndex = '1'
     } catch (error) {
       console.error('Error setting up WebGL renderer:', error)
       throw error
@@ -158,7 +154,6 @@ export default class MainScene {
       this.updateFrameOffset(this.currentFrameIndex)
       this.createParticleMesh(geometry)
 
-      // Add additional random particles
       this.addRandomParticles()
     } catch (error) {
       console.error('Error setting up particle grid:', error)
@@ -192,7 +187,7 @@ export default class MainScene {
 
     const customMaterial = new ShaderMaterial({
       uniforms: {
-        uPointSize: { value: this.guiObj.pointSize },
+        uPointSize: { value: 0.5 },
         uTime: { value: 0.0 },
         uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
       },
@@ -214,17 +209,15 @@ export default class MainScene {
     const randoms = []
     const colorRandoms = []
     const multiplier = 28
-    const nbColumns = 9 * multiplier // 144 columns
-    const nbLines = 16 * multiplier  // 384 lines
+    const nbColumns = 9 * multiplier
+    const nbLines = 16 * multiplier
 
     this.nbColumns = nbColumns
     this.nbLines = nbLines
 
-    // Center the grid
     const halfColumn = nbColumns / 2
     const halfLines = nbLines / 2
 
-    // Generate particles
     for (let i = 0; i < nbLines; i++) {
       for (let y = 0; y < nbColumns; y++) {
         const point = [i - halfLines, y - halfColumn, 0.0]
@@ -253,33 +246,25 @@ export default class MainScene {
   }
 
   initializeUniforms() {
-    this.dpr = 2 // Device pixel ratio
+    this.dpr = 2
     this.uniforms = {
-      uPointSize: { value: this.guiObj.pointSize }, // Particle size
+      uPointSize: { value: 0.5 },
       uNbLines: { value: this.nbLines },
       uNbColumns: { value: this.nbColumns },
-      uProgress: { value: this.guiObj.uProgress }, // Animation progress
+      uProgress: { value: 0 },
       uTime: { value: 0.0 },
       uTouch: { value: this.touch.texture },
       uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
-
-      // Sprite sheet uniforms
       uFrameIndex: { value: this.currentFrameIndex },
       uSpriteCols: { value: 5 },
       uSpriteRows: { value: 10 },
       uTotalFrames: { value: 100 },
-
-      // Sprite sheet textures
       uSprite1: { value: LoaderManager.assets['sprite1'].texture },
       uSprite2: { value: LoaderManager.assets['sprite2'].texture },
-
-      // Active sprite sheet and UV offset
       uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture },
       uTexOffset: { value: new Vector2(0, 0) },
-
-      // Displacement uniforms
-      uDisplacementScale: { value: 30.0 }, // Controls Z-axis displacement intensity
-      uDisplacementBlend: { value: 0.0 },  // Blend factor for displacement effect
+      uDisplacementScale: { value: 30.0 },
+      uDisplacementBlend: { value: 0.0 },
     }
   }
 
@@ -295,6 +280,7 @@ export default class MainScene {
     })
     this.mesh = new Points(geometry, customMaterial)
     this.scene.add(this.mesh)
+    console.log('Particle mesh added to scene:', this.mesh) // Add this line for debugging
   }
 
   updateFrameOffset(frameIndex) {
@@ -304,7 +290,7 @@ export default class MainScene {
 
     if (sheetIndex < 1) {
       this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value
-      actualFrame = 49 - actualFrame // Reverse order for sprite1
+      actualFrame = 49 - actualFrame
     } else {
       this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value
     }
@@ -324,10 +310,8 @@ export default class MainScene {
     const mouseX = (event.clientX / window.innerWidth) * 2 - 1
     const mouseY = -(event.clientY / window.innerHeight) * 2 + 1
 
-    // Debugging logs
     console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY)
     console.log('Mesh:', this.mesh)
-
 
     const deltaX = mouseX - this.mouse.x
     const frameChangeSpeed = 60.0
@@ -338,13 +322,11 @@ export default class MainScene {
     this.mouse.x = mouseX
     this.mouse.y = mouseY
 
-    // Initialize GSAP quickTo for smooth rotation
     const rotateX = gsap.quickTo(this.mesh.rotation, 'x', { duration: 0.5, ease: 'circ.out' })
     const rotateY = gsap.quickTo(this.mesh.rotation, 'y', { duration: 0.5, ease: 'circ.out' })
 
-    // Apply rotation based on mouse movement
-    rotateX(this.mouse.y * Math.PI / 64) // Tilt up/down
-    rotateY(this.mouse.x * Math.PI / 64) // Turn left/right
+    rotateX(this.mouse.y * Math.PI / 64)
+    rotateY(this.mouse.x * Math.PI / 64)
 
     gsap.to(this.uniforms.uFrameIndex, {
       value: this.currentFrameIndex,
@@ -365,7 +347,6 @@ export default class MainScene {
       this.touch.addTouch(uv)
     }
 
-    // Update light position based on mouse movement
     if (this.light) {
       this.light.position.x = -this.mouse.x * 10
       this.light.position.y = this.mouse.y * 10
@@ -398,40 +379,9 @@ export default class MainScene {
     }
   }
 
-  setGUI() {
-    try {
-      const gui = new GUI()
-      gui.add(this.guiObj, 'uProgress', 0, 1, 0.01).onChange(() => {
-        this.uniforms.uProgress.value = this.guiObj.uProgress
-      }).name('Progress').listen()
-
-      gsap.to(this.guiObj, {
-        uProgress: 1,
-        duration: 2.5,
-        ease: 'Power4.easeOut',
-        onUpdate: () => {
-          this.uniforms.uProgress.value = this.guiObj.uProgress
-        },
-      })
-      gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
-        this.uniforms.uPointSize.value = this.guiObj.pointSize
-      })
-
-      // Add controls for DotScreenEffect
-      gui.add(this.dotScreenEffect, 'enabled').name('DotScreen Effect')
-      gui.add(this.dotScreenEffect.uniforms.get('scale'), 'value', 0.1, 2).name('DotScreen Scale')
-
-      // Add controls for GlitchEffect
-      gui.add(this.glitchEffect, 'enabled').name('Glitch Effect')
-    } catch (error) {
-      console.error('Error setting up GUI:', error)
-    }
-  }
-
   events() {
     window.addEventListener('resize', this.handleResize, { passive: true })
     window.addEventListener('mousemove', this.handleMouseMove, { passive: true })
-    this.draw(0)
   }
 
   handleTouchMove = (e) => {
@@ -460,7 +410,6 @@ export default class MainScene {
     this.renderPass = new RenderPass(this.scene, this.camera)
     this.composer.addPass(this.renderPass)
 
-    // Create multiple BloomEffect instances with different intensities
     const bloom1 = new BloomEffect({
       blendFunction: BlendFunction.SCREEN,
       intensity: 1.9,
@@ -501,35 +450,32 @@ export default class MainScene {
 
     this.smaaAliasEffect = new SMAAEffect({ preset: SMAAPreset.ULTRA })
 
-    // Add bloom and hue/saturation effects to the first EffectPass
     this.composer.addPass(new EffectPass(this.camera, bloom1, bloom2, bloom3, this.hueSaturationEffect, this.smaaAliasEffect))
-
-    // Add chromatic aberration effect to a separate EffectPass
     this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect))
-
-    // Add DotScreenEffect
-    // this.dotScreenEffect = new DotScreenEffect({ scale: 0.0005 })
-    // this.composer.addPass(new EffectPass(this.camera, this.dotScreenEffect))
-
-    // Add GlitchEffect
-    this.glitchEffect = new GlitchEffect()
+    this.glitchEffect = new GlitchEffect({ delay: new Vector2(2.5, 5.5) })
     this.composer.addPass(new EffectPass(this.camera, this.glitchEffect))
   }
 
   setLights() {
-    this.light = new PointLight('#ffffff', 1) // Corrected usage
+    this.light = new PointLight('#ffffff', 1)
     this.light.position.set(0, 0, 100)
     this.scene.add(this.light)
   }
 
   draw = (time) => {
+    console.log('Draw method called') // Add this line for debugging
+
     if (this.stats) this.stats.begin()
 
     if (this.controls) this.controls.update()
 
-    this.uniforms.uTime.value = time * 0.001
+    if (this.uniforms && this.uniforms.uTime) {
+      this.uniforms.uTime.value = time * 0.001
+    } else {
+      console.warn('uTime uniform is not defined')
+    }
 
-    if (this.randomMesh) {
+    if (this.randomMesh && this.randomMesh.material.uniforms.uTime) {
       this.randomMesh.material.uniforms.uTime.value = time * 0.001
     }
 
