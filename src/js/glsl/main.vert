@@ -151,18 +151,18 @@ void main() {
   transformed.z += displacement;
 
   // Reduce noise effect
-  vec3 noiseInput = vec3(transformed.xy * 0.05, uTime * 0.05);
+  vec3 noiseInput = vec3(transformed.xy * 0.02, uTime * 0.02);
   transformed += vec3(
     snoise(noiseInput),
     snoise(noiseInput + 100.0),
     snoise(noiseInput + 200.0)
-  ) * 0.2;
+  ) * 0.1;
 
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
   // Increase point size
-  gl_PointSize = (uPointSize * 1.5 + randoms * 0.5) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
+  gl_PointSize = (uPointSize * 2.0 + randoms * 0.2) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
 
   // Set the alpha to 0 for invisible particles
   vAlpha = visibility;

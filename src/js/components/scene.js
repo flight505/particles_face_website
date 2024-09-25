@@ -430,7 +430,7 @@ export default class MainScene {
 
     // Chromatic aberration effect
     this.chromaticAberrationEffect = new ChromaticAberrationEffect({
-      offset: new Vector2(0.005, 0.005),
+      offset: new Vector2(0.004, 0.004),
     });
 
     // Glitch effect
@@ -446,7 +446,7 @@ export default class MainScene {
     const vignetteEffect = new VignetteEffect({
       eskil: false,
       offset: 0.1,
-      darkness: 0.7
+      darkness: 0.9
     });
 
     // Noise effect
@@ -466,7 +466,7 @@ export default class MainScene {
   }
 
   setLights() {
-    this.light = new PointLight('#ffffff', 1)
+    this.light = new PointLight('#f200ff', 1)
     this.light.position.set(0, 0, 100)
     this.scene.add(this.light)
   }
