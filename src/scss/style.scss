@@ -108,6 +108,9 @@ body {
     text-align: center;
     margin: 0 50px;
     pointer-events: auto; // Ensure the element can receive mouse events
+
+    // Add these properties to position the menu items
+    top: 40%;
 }
 
 .scene {

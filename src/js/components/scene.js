@@ -338,7 +338,7 @@ export default class MainScene {
     const rotateX = gsap.quickTo(this.mesh.rotation, 'x', { duration: 0.5, ease: 'circ.out' })
     const rotateY = gsap.quickTo(this.mesh.rotation, 'y', { duration: 0.5, ease: 'circ.out' })
 
-    rotateX(this.mouse.y * Math.PI / 64)
+    rotateX(-this.mouse.y * Math.PI / 64) // Negate this.mouse.y to reverse the tilt direction
     rotateY(this.mouse.x * Math.PI / 64)
 
     gsap.to(this.uniforms.uFrameIndex, {
