@@ -59,16 +59,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const distanceRatio = closestDistance / (rect.width / 2)
 
             gsap.to(cursor, {
-                left: targetCenter.x - Math.cos(angle) * closestDistance * 0.5,
-                top: targetCenter.y - Math.sin(angle) * closestDistance * 0.5,
+                left: targetCenter.x,
+                top: targetCenter.y,
                 height: rect.height,
                 width: rect.width,
                 duration: 0.2
             })
 
             gsap.to(closestTarget.querySelector(".text"), {
-                x: -Math.cos(angle) * closestDistance * 0.5 * distanceRatio,
-                y: -Math.sin(angle) * closestDistance * 0.5 * distanceRatio,
+                x: 0,
+                y: 0,
+                scale: 1.1,
                 duration: 0.2
             })
         } else {
@@ -84,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 gsap.to(target.querySelector(".text"), {
                     x: 0,
                     y: 0,
+                    scale: 1,
                     duration: 0.2
                 })
             })
