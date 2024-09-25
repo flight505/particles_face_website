@@ -11,8 +11,10 @@ uniform float uScaleHeightPointSize;
 
 attribute vec3 initPosition;
 attribute float randoms;
+attribute float visibility;
 
 varying vec2 vTexCoords;
+varying float vAlpha;
 
 uniform sampler2D uSpriteSheet;    // Active Sprite Sheet (sprite1 or sprite2)
 uniform vec2 uTexOffset;           // UV Offset to Select Current Frame
@@ -141,41 +143,31 @@ void main() {
   vec4 spriteData = texture2D(uSpriteSheet, spriteUV);
   float brightness = spriteData.r;
 
-  // Blend the displacement effect gradually
+  // Simplified displacement calculation
   float displacement = mix(initPosition.z, brightness * uDisplacementScale, uDisplacementBlend);
 
-  // Apply dispersion effect
-  vec3 dispersedPosition = mix(position, initPosition, uDispersion);
+  // Simplified position calculation
+  vec3 transformed = mix(position, initPosition, uDispersion);
+  transformed.z += displacement;
 
-  // Add subtle side-to-side movement
-  float sideToSideMovement = sin(uTime + dispersedPosition.y * 1.5) * 0.3;
+  // Add subtle movement
+  transformed.x += sin(uTime + transformed.y * 1.5) * 0.3;
+  transformed.y += sin(uTime * 0.5 + transformed.x) * 0.1;
 
-  // Calculate row-based distortion
-  float rowDistortion = sin(dispersedPosition.y * uDistortionFrequency + uTime) * uDistortionAmplitude;
-  
-  // Determine if this is a "special" row for extra distortion
-  float rowSeed = floor(dispersedPosition.y / 10.0) + uRandomSeed;
-  float isSpecialRow = step(0.9, random(vec2(rowSeed, 0.0)));
-  
-  // Apply extra distortion to special rows
-  rowDistortion *= mix(10.0, 10.0, isSpecialRow);
-
-  // Create horizontal ribbons by adjusting the y position
-  float ribbonHeight = 3.0;
-  float gapHeight = 0.5;
-  float rowsPerRibbon = 3.0;
-  float adjustedY = floor(dispersedPosition.y / (ribbonHeight + gapHeight)) * (ribbonHeight + gapHeight) + mod(dispersedPosition.y, rowsPerRibbon);
-
-  // Calculate final displaced position
-  vec3 transformed = vec3(
-    dispersedPosition.x + sideToSideMovement + snoise(vec3(dispersedPosition.xy * 0.1, uTime * 0.1)) * 0.5,
-    adjustedY + snoise(vec3(dispersedPosition.xy * 0.1, uTime * 0.1 + 100.0)) * 0.3,
-    mix(dispersedPosition.z, displacement, 1.0 - uDispersion) + snoise(vec3(dispersedPosition.xy * 0.1, uTime * 0.1 + 200.0)) * 0.5
-  );
+  // Apply noise-based distortion
+  vec3 noiseInput = vec3(transformed.xy * 0.1, uTime * 0.1);
+  transformed += vec3(
+    snoise(noiseInput),
+    snoise(noiseInput + 100.0),
+    snoise(noiseInput + 200.0)
+  ) * 0.5;
 
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
-  // Adjust point size based on Z-axis for depth perception and add randomness
-  gl_PointSize = (uPointSize + randoms * 0.5) * (uScaleHeightPointSize / -mvPosition.z);
+  // Simplified point size calculation
+  gl_PointSize = (uPointSize + randoms * 0.5) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
+
+  // Set the alpha to 0 for invisible particles
+  vAlpha = visibility;
 }

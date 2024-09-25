@@ -12,6 +12,8 @@ import {
   Vector2,
   AdditiveBlending,
   PointLight,
+  Frustum,
+  Matrix4,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
@@ -48,6 +50,8 @@ export default class MainScene {
   mouse = new Vector2(0, 0)
   currentFrameIndex = 49
   glitchEffect
+  frustum
+  projScreenMatrix
 
   constructor() {
     this.canvas = document.querySelector('.scene')
@@ -57,6 +61,8 @@ export default class MainScene {
     this.width = window.innerWidth
     this.height = window.innerHeight
     this.touch = new TouchTexture()
+    this.frustum = new Frustum()
+    this.projScreenMatrix = new Matrix4()
     this.init().catch(error => {
       console.error('Initialization failed:', error)
     })
@@ -120,12 +126,12 @@ export default class MainScene {
 
   setCamera() {
     const aspectRatio = this.width / this.height
-    const fieldOfView = 80
+    const fieldOfView = 60
     const nearPlane = 0.1
     const farPlane = 10000
 
     this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
-    this.camera.position.set(0, 0, 200)
+    this.camera.position.set(0, 0, 220)
     this.camera.lookAt(0, 0, 0)
 
     this.scene.add(this.camera)
@@ -152,57 +158,15 @@ export default class MainScene {
       this.updateFrameOffset(this.currentFrameIndex)
       this.createParticleMesh(geometry)
 
-      this.addRandomParticles()
+      // Initialize visibility attribute
+      const visibilityArray = new Float32Array(particles.length / 3)
+      visibilityArray.fill(1.0)
+      geometry.setAttribute('visibility', new BufferAttribute(visibilityArray, 1))
+
     } catch (error) {
       console.error('Error setting up particle grid:', error)
       throw error
     }
-  }
-
-  addRandomParticles() {
-    const randomParticleCount = 1000
-    const randomParticles = []
-    const randomInitPositions = []
-    const randoms = []
-    const colorRandoms = []
-
-    // Increase the spread range
-    const spreadX = this.nbColumns * 2
-    const spreadY = this.nbLines * 2
-    const spreadZ = 400 // Increased depth range
-
-    for (let i = 0; i < randomParticleCount; i++) {
-      const x = randFloat(-spreadX, spreadX)
-      const y = randFloat(-spreadY, spreadY)
-      const z = randFloat(-spreadZ, spreadZ)
-      randomParticles.push(x, y, z)
-      randomInitPositions.push(x, y, z)
-      randoms.push(Math.random())
-      colorRandoms.push(Math.random())
-    }
-
-    const randomGeometry = new BufferGeometry()
-    randomGeometry.setAttribute('position', new BufferAttribute(new Float32Array(randomParticles), 3))
-    randomGeometry.setAttribute('initPosition', new BufferAttribute(new Float32Array(randomInitPositions), 3))
-    randomGeometry.setAttribute('randoms', new BufferAttribute(new Float32Array(randoms), 1))
-    randomGeometry.setAttribute('colorRandoms', new BufferAttribute(new Float32Array(colorRandoms), 1))
-
-    const customMaterial = new ShaderMaterial({
-      uniforms: {
-        uPointSize: { value: 0.5 }, // Increased point size for better visibility
-        uTime: { value: 0.0 },
-        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
-      },
-      vertexShader: randomVertexShader,
-      fragmentShader: randomFragmentShader,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      blending: AdditiveBlending,
-    })
-
-    this.randomMesh = new Points(randomGeometry, customMaterial)
-    this.scene.add(this.randomMesh)
   }
 
   generateParticleAttributes() {
@@ -211,26 +175,25 @@ export default class MainScene {
     const randoms = []
     const colorRandoms = []
     const multiplier = 28
-    const nbColumns = 9 * multiplier
-    const nbLines = 16 * multiplier
+    this.nbColumns = 9 * multiplier
+    this.nbLines = 16 * multiplier
 
-    this.nbColumns = nbColumns
-    this.nbLines = nbLines
+    const halfColumn = this.nbColumns / 2
+    const halfLines = this.nbLines / 2
 
-    const halfColumn = nbColumns / 2
-    const halfLines = nbLines / 2
+    for (let i = 0; i < this.nbLines; i++) {
+      for (let j = 0; j < this.nbColumns; j++) {
+        const x = i - halfLines
+        const y = j - halfColumn
+        const z = 0
+        particles.push(x, y, z)
 
-    for (let i = 0; i < nbLines; i++) {
-      for (let y = 0; y < nbColumns; y++) {
-        const point = [i - halfLines, y - halfColumn, 0.0]
-        // Increase the spread of initial positions significantly
-        const initPoint = [
-          (i - halfLines) + randFloat(-100, 100),
-          (y - halfColumn) + randFloat(-100, 100),
-          randFloat(-200, 200)
-        ]
-        particles.push(...point)
-        initPositions.push(...initPoint)
+        // Reduce the spread of initial positions for better performance
+        initPositions.push(
+          x + randFloat(-50, 50),
+          y + randFloat(-50, 50),
+          randFloat(-100, 100)
+        )
         randoms.push(Math.random())
         colorRandoms.push(Math.random())
       }
@@ -253,7 +216,7 @@ export default class MainScene {
   }
 
   initializeUniforms() {
-    this.dpr = 2
+    this.dpr = Math.min(window.devicePixelRatio, 2)
     this.uniforms = {
       uPointSize: { value: 0.2 },
       uNbLines: { value: this.nbLines },
@@ -291,7 +254,6 @@ export default class MainScene {
     })
     this.mesh = new Points(geometry, customMaterial)
     this.scene.add(this.mesh)
-    console.log('Particle mesh added to scene:', this.mesh) // Add this line for debugging
   }
 
   updateFrameOffset(frameIndex) {
@@ -457,28 +419,28 @@ export default class MainScene {
 
     const bloom1 = new BloomEffect({
       blendFunction: BlendFunction.SCREEN,
-      intensity: 1.9,
-      luminanceThreshold: 0.1,
-      radius: 1.1,
-      luminanceSmoothing: 0.15,
+      intensity: 1.2,
+      luminanceThreshold: 0.9,
+      radius: 0.7,
+      luminanceSmoothing: 0.3,
       mipmapBlur: true,
     })
 
     const bloom2 = new BloomEffect({
       blendFunction: BlendFunction.SCREEN,
-      intensity: 3.2,
-      luminanceThreshold: 0.1,
+      intensity: 1.4,
+      luminanceThreshold: 0.6,
       radius: 0.5,
-      luminanceSmoothing: 0.15,
+      luminanceSmoothing: 0.25,
       mipmapBlur: true,
     })
 
     const bloom3 = new BloomEffect({
       blendFunction: BlendFunction.SCREEN,
-      intensity: 1.2,
-      luminanceThreshold: 0.1,
-      radius: 0.5,
-      luminanceSmoothing: 0.15,
+      intensity: 1.1,
+      luminanceThreshold: 0.2,
+      radius: 0.4,
+      luminanceSmoothing: 0.2,
       mipmapBlur: true,
     })
 
@@ -495,7 +457,7 @@ export default class MainScene {
 
     this.composer.addPass(new EffectPass(this.camera, bloom1, bloom2, bloom3, this.smaaEffect))
     this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect))
-    this.glitchEffect = new GlitchEffect({ delay: new Vector2(2.5, 5.5) })
+    this.glitchEffect = new GlitchEffect({ delay: new Vector2(2.5, 8.5) })
     this.composer.addPass(new EffectPass(this.camera, this.glitchEffect))
   }
 
@@ -505,21 +467,45 @@ export default class MainScene {
     this.scene.add(this.light)
   }
 
-  draw = (time) => {
-    console.log('Draw method called') // Add this line for debugging
+  updateFrustum() {
+    this.projScreenMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+    this.frustum.setFromProjectionMatrix(this.projScreenMatrix)
+  }
 
+  updateParticleVisibility() {
+    if (!this.mesh) return
+
+    const positions = this.mesh.geometry.attributes.position
+    const visibility = this.mesh.geometry.attributes.visibility
+
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i)
+      const y = positions.getY(i)
+      const z = positions.getZ(i)
+
+      if (this.frustum.containsPoint({ x, y, z })) {
+        visibility.setX(i, 1.0)
+      } else {
+        visibility.setX(i, 0.0)
+      }
+    }
+
+    visibility.needsUpdate = true
+  }
+
+  draw = (time) => {
     if (this.stats) this.stats.begin()
 
     if (this.controls) this.controls.update()
+
+    // Update frustum and particle visibility
+    this.updateFrustum()
+    this.updateParticleVisibility()
 
     if (this.uniforms && this.uniforms.uTime) {
       this.uniforms.uTime.value = time * 0.001
     } else {
       console.warn('uTime uniform is not defined')
-    }
-
-    if (this.randomMesh && this.randomMesh.material.uniforms.uTime) {
-      this.randomMesh.material.uniforms.uTime.value = time * 0.001
     }
 
     this.renderer.render(this.scene, this.camera)

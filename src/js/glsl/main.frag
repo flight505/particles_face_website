@@ -15,6 +15,9 @@ uniform float uProgress;
 // Varying UV Coordinates from Vertex Shader
 varying vec2 vTexCoords;
 
+// Add this to the list of varyings
+varying float vAlpha;
+
 float circle(vec2 uv, float border) {
   float radius = 0.5;
   float dist = radius - distance(uv, vec2(0.5));
@@ -47,25 +50,18 @@ void main() {
   vec2 finalUV = frameUVOffset + vTexCoords * vec2(frameWidth, frameHeight);
 
   // Sample texture from the correct sprite sheet
-  vec4 sampledColor;
-  if (sheetIndex < 1.0) {
-    sampledColor = texture2D(uSprite1, finalUV);
-  } else {
-    sampledColor = texture2D(uSprite2, finalUV);
-  }
+  vec4 sampledColor = sheetIndex < 1.0 ? texture2D(uSprite1, finalUV) : texture2D(uSprite2, finalUV);
 
-  // Enhance brightness for glow effect
-  sampledColor.rgb *= 0.5; // Increase brightness
+  // Apply brightness and circular mask
+  float mask = smoothstep(0.5, 0.48, length(gl_PointCoord - 0.5));
+  gl_FragColor = vec4(sampledColor.rgb * 0.5, sampledColor.a * mask * uProgress);
 
-  // Apply the sampled texture color
-  gl_FragColor.rgb = sampledColor.rgb;
+  // Apply visibility to the alpha channel
+  gl_FragColor.a *= vAlpha;
 
-  // Discard pixels if too dark to create transparency
-  if (gl_FragColor.r < 0.01) {
+  // Discard pixels if too transparent
+  if (gl_FragColor.a < 0.01) {
     discard;
   }
-
-  // Apply circular opacity mask and animation progress
-  gl_FragColor.a = circle(gl_PointCoord, 0.01) * uProgress;
 }
 
