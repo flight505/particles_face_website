@@ -90,6 +90,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function handleNavigation(targetText) {
+        const sections = document.querySelectorAll('section')
+        sections.forEach(section => {
+            section.style.display = 'none'
+        })
+
+        const targetSection = document.getElementById(targetText.toLowerCase())
+        if (targetSection) {
+            targetSection.style.display = 'block'
+        }
+    }
+
+    targets.forEach(target => {
+        target.addEventListener('click', () => {
+            const targetText = target.querySelector('.text').textContent
+            handleNavigation(targetText)
+        })
+    })
+
+    const contactForm = document.getElementById('contact-form')
+    if (contactForm) {
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault()
+            const email = document.getElementById('email').value
+            const message = document.getElementById('message').value
+            console.log('Form submitted:', { email, message })
+            // Here you would typically send this data to a server
+            alert('Thank you for your message. We will get back to you soon!')
+            contactForm.reset()
+        })
+    }
+
     document.addEventListener("mousemove", updateCursor, { passive: true })
 })
 

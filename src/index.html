@@ -7,6 +7,7 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <link rel="icon" type="image/x-icon" href="./img/favicon.svg" />
   <link rel="stylesheet" href="./scss/style.scss" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
   <title>3D Face Animation</title>
 </head>
 
@@ -17,13 +18,16 @@
   <div class="swipeloaders">
     <div class="homeloaderblack">
       <div class="target">
-        <p class="text">LI1</p>
+        <p class="text">Home</p>
       </div>
       <div class="target">
-        <p class="text">LI2</p>
+        <p class="text">Vital Insights</p>
       </div>
       <div class="target">
-        <p class="text">LI3</p>
+        <p class="text">About</p>
+      </div>
+      <div class="target">
+        <p class="text">Contact</p>
       </div>
       <div class="cursor" id="cursor"></div>
     </div>
@@ -33,19 +37,32 @@
   <!-- Sections for each page -->
   <section id="home" style="display: block;">
     <h2>Home</h2>
-    <p>Welcome to the home page.</p>
+    <p>Welcome to Vang's Vital Insights.</p>
   </section>
   <section id="insights" style="display: none;">
-    <h2>Insights</h2>
-    <p>Here are some insights.</p>
-  </section>
-  <section id="contact" style="display: none;">
-    <h2>Contact</h2>
-    <p>Contact us at contact@example.com.</p>
+    <h2>Vital Insights</h2>
+    <p>Discover the power of data-driven decision making:</p>
+    <ul>
+      <li>Uncover hidden patterns in your business data</li>
+      <li>Optimize operations with predictive analytics</li>
+      <li>Transform raw data into actionable strategies</li>
+      <li>Stay ahead of market trends with real-time insights</li>
+    </ul>
   </section>
   <section id="about" style="display: none;">
     <h2>About</h2>
-    <p>About us page.</p>
+    <p>Vang's Vital Insights is a platform dedicated to sharing valuable information and perspectives on various topics.
+    </p>
+  </section>
+  <section id="contact" style="display: none;">
+    <h2>Contact</h2>
+    <form id="contact-form">
+      <label for="email">Email:</label>
+      <input type="email" id="email" required>
+      <label for="message">Message:</label>
+      <textarea id="message" required></textarea>
+      <button type="submit">Send</button>
+    </form>
   </section>
 
   <!-- Load GSAP and Draggable before main.js -->
