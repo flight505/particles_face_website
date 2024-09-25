@@ -35,6 +35,7 @@ import {
   SMAAEffect,
   SMAAPreset,
   GlitchEffect,
+  EdgeDetectionMode,
 } from 'postprocessing'
 
 export default class MainScene {
@@ -48,7 +49,6 @@ export default class MainScene {
   height
   mouse = new Vector2(0, 0)
   currentFrameIndex = 49
-  dotScreenEffect
   glitchEffect
 
   constructor() {
@@ -122,12 +122,12 @@ export default class MainScene {
 
   setCamera() {
     const aspectRatio = this.width / this.height
-    const fieldOfView = 60
+    const fieldOfView = 80
     const nearPlane = 0.1
     const farPlane = 10000
 
     this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
-    this.camera.position.set(0, 0, 125)
+    this.camera.position.set(0, 0, 200)
     this.camera.lookAt(0, 0, 0)
 
     this.scene.add(this.camera)
@@ -168,10 +168,15 @@ export default class MainScene {
     const randoms = []
     const colorRandoms = []
 
+    // Increase the spread range
+    const spreadX = this.nbColumns * 2
+    const spreadY = this.nbLines * 2
+    const spreadZ = 400 // Increased depth range
+
     for (let i = 0; i < randomParticleCount; i++) {
-      const x = randFloat(-this.nbColumns / 2, this.nbColumns / 2)
-      const y = randFloat(-this.nbLines / 2, this.nbLines / 2)
-      const z = randFloat(-50, 50)
+      const x = randFloat(-spreadX, spreadX)
+      const y = randFloat(-spreadY, spreadY)
+      const z = randFloat(-spreadZ, spreadZ)
       randomParticles.push(x, y, z)
       randomInitPositions.push(x, y, z)
       randoms.push(Math.random())
@@ -183,11 +188,10 @@ export default class MainScene {
     randomGeometry.setAttribute('initPosition', new BufferAttribute(new Float32Array(randomInitPositions), 3))
     randomGeometry.setAttribute('randoms', new BufferAttribute(new Float32Array(randoms), 1))
     randomGeometry.setAttribute('colorRandoms', new BufferAttribute(new Float32Array(colorRandoms), 1))
-    randomGeometry.center()
 
     const customMaterial = new ShaderMaterial({
       uniforms: {
-        uPointSize: { value: 0.5 },
+        uPointSize: { value: 0.5 }, // Increased point size for better visibility
         uTime: { value: 0.0 },
         uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
       },
@@ -221,7 +225,12 @@ export default class MainScene {
     for (let i = 0; i < nbLines; i++) {
       for (let y = 0; y < nbColumns; y++) {
         const point = [i - halfLines, y - halfColumn, 0.0]
-        const initPoint = [i - halfLines, y - halfColumn, randFloat(50, 150)]
+        // Increase the spread of initial positions significantly
+        const initPoint = [
+          (i - halfLines) + randFloat(-100, 100),
+          (y - halfColumn) + randFloat(-100, 100),
+          randFloat(-200, 200)
+        ]
         particles.push(...point)
         initPositions.push(...initPoint)
         randoms.push(Math.random())
@@ -248,7 +257,7 @@ export default class MainScene {
   initializeUniforms() {
     this.dpr = 2
     this.uniforms = {
-      uPointSize: { value: 0.5 },
+      uPointSize: { value: 0.2 },
       uNbLines: { value: this.nbLines },
       uNbColumns: { value: this.nbColumns },
       uProgress: { value: 0 },
@@ -265,6 +274,10 @@ export default class MainScene {
       uTexOffset: { value: new Vector2(0, 0) },
       uDisplacementScale: { value: 30.0 },
       uDisplacementBlend: { value: 0.0 },
+      uDispersion: { value: 1.0 },
+      uDistortionFrequency: { value: 0.1 },
+      uDistortionAmplitude: { value: 0.0 },
+      uRandomSeed: { value: Math.random() * 100 },
     }
   }
 
@@ -359,11 +372,45 @@ export default class MainScene {
       { value: 0 },
       {
         value: 1,
-        duration: 2.5,
-        ease: 'power2.inOut',
+        duration: 2.0,
+        ease: 'power3.out',
         onUpdate: () => {
           this.uniforms.uDisplacementBlend.value = this.uniforms.uProgress.value
         },
+      }
+    )
+
+    gsap.fromTo(
+      this.uniforms.uDispersion,
+      { value: 1 },
+      {
+        value: 0,
+        duration: 2.0,
+        ease: 'power3.out',
+      }
+    )
+
+    // Animate distortion amplitude
+    gsap.fromTo(
+      this.uniforms.uDistortionAmplitude,
+      { value: 0 },
+      {
+        value: 1.5,
+        duration: 2.0,
+        ease: 'power2.inOut',
+      }
+    )
+
+    // Animate distortion frequency
+    gsap.fromTo(
+      this.uniforms.uDistortionFrequency,
+      { value: 0.05 },
+      {
+        value: 0.2,
+        duration: 3.0,
+        ease: 'power2.inOut',
+        yoyo: true,
+        repeat: -1,
       }
     )
   }
@@ -438,19 +485,17 @@ export default class MainScene {
     })
 
     this.chromaticAberrationEffect = new ChromaticAberrationEffect({
-      offset: new Vector2(0.002, 0.02),
+      offset: new Vector2(0.06, 0.06),
       radialModulation: true,
       modulationOffset: 0.7,
     })
 
-    this.hueSaturationEffect = new HueSaturationEffect({
-      hue: -0.1,
-      saturation: 0.25,
+
+    this.smaaEffect = new SMAAEffect({
+      preset: SMAAPreset.ULTRA,
     })
 
-    this.smaaAliasEffect = new SMAAEffect({ preset: SMAAPreset.ULTRA })
-
-    this.composer.addPass(new EffectPass(this.camera, bloom1, bloom2, bloom3, this.hueSaturationEffect, this.smaaAliasEffect))
+    this.composer.addPass(new EffectPass(this.camera, bloom1, bloom2, bloom3, this.smaaEffect))
     this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect))
     this.glitchEffect = new GlitchEffect({ delay: new Vector2(2.5, 5.5) })
     this.composer.addPass(new EffectPass(this.camera, this.glitchEffect))
@@ -486,6 +531,11 @@ export default class MainScene {
 
     if (this.stats) this.stats.end()
     this.raf = window.requestAnimationFrame(this.draw)
+
+    // Update random seed periodically for variety in special rows
+    if (Math.random() < 0.01) { // Change seed roughly every 100 frames
+      this.uniforms.uRandomSeed.value = Math.random() * 100
+    }
   }
 
   handleResize = () => {

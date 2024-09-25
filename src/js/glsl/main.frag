@@ -55,13 +55,13 @@ void main() {
   }
 
   // Enhance brightness for glow effect
-  sampledColor.rgb *= 0.6; // Increase brightness
+  sampledColor.rgb *= 0.5; // Increase brightness
 
   // Apply the sampled texture color
   gl_FragColor.rgb = sampledColor.rgb;
 
   // Discard pixels if too dark to create transparency
-  if (gl_FragColor.r < 0.15) {
+  if (gl_FragColor.r < 0.01) {
     discard;
   }
 
