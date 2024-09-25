@@ -20,6 +20,8 @@ import LoaderManager from '@/js/managers/LoaderManager'
 import GUI from 'lil-gui'
 import vertexShader from '@/js/glsl/main.vert'
 import fragmentShader from '@/js/glsl/main.frag'
+import randomVertexShader from '@/js/glsl/random.vert'
+import randomFragmentShader from '@/js/glsl/random.frag'
 import { randFloat } from 'three/src/math/MathUtils'
 import gsap from 'gsap'
 import TouchTexture from './TouchTexture'
@@ -34,6 +36,8 @@ import {
   HueSaturationEffect,
   SMAAEffect,
   SMAAPreset,
+  DotScreenEffect, // Corrected import
+  GlitchEffect, // Corrected import
 } from 'postprocessing'
 
 // The MainScene class is a Three.js-based scene manager. It initializes various properties such as canvas, renderer, scene,
@@ -52,6 +56,8 @@ export default class MainScene {
   }
   mouse = new Vector2(0, 0) // Initialize mouse position
   currentFrameIndex = 49 // Start with the forward-facing frame
+  dotScreenEffect
+  glitchEffect
 
   constructor() {
     this.canvas = document.querySelector('.scene')
@@ -151,10 +157,55 @@ export default class MainScene {
       this.initializeUniforms()
       this.updateFrameOffset(this.currentFrameIndex)
       this.createParticleMesh(geometry)
+
+      // Add additional random particles
+      this.addRandomParticles()
     } catch (error) {
       console.error('Error setting up particle grid:', error)
       throw error
     }
+  }
+
+  addRandomParticles() {
+    const randomParticleCount = 1000
+    const randomParticles = []
+    const randomInitPositions = []
+    const randoms = []
+    const colorRandoms = []
+
+    for (let i = 0; i < randomParticleCount; i++) {
+      const x = randFloat(-this.nbColumns / 2, this.nbColumns / 2)
+      const y = randFloat(-this.nbLines / 2, this.nbLines / 2)
+      const z = randFloat(-50, 50)
+      randomParticles.push(x, y, z)
+      randomInitPositions.push(x, y, z)
+      randoms.push(Math.random())
+      colorRandoms.push(Math.random())
+    }
+
+    const randomGeometry = new BufferGeometry()
+    randomGeometry.setAttribute('position', new BufferAttribute(new Float32Array(randomParticles), 3))
+    randomGeometry.setAttribute('initPosition', new BufferAttribute(new Float32Array(randomInitPositions), 3))
+    randomGeometry.setAttribute('randoms', new BufferAttribute(new Float32Array(randoms), 1))
+    randomGeometry.setAttribute('colorRandoms', new BufferAttribute(new Float32Array(colorRandoms), 1))
+    randomGeometry.center()
+
+    const customMaterial = new ShaderMaterial({
+      uniforms: {
+        uPointSize: { value: this.guiObj.pointSize },
+        uTime: { value: 0.0 },
+        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
+      },
+      vertexShader: randomVertexShader,
+      fragmentShader: randomFragmentShader,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      blending: AdditiveBlending,
+    })
+
+    this.randomMesh = new Points(randomGeometry, customMaterial)
+    this.scene.add(this.randomMesh)
   }
 
   generateParticleAttributes() {
@@ -277,18 +328,8 @@ export default class MainScene {
     console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY)
     console.log('Mesh:', this.mesh)
 
-    // Remove position changes to keep the grid in place
-    /*
-    if (this.mesh && this.mesh.position) {
-      this.mesh.position.x = mouseX * 10 // Adjust multiplier as needed
-      this.mesh.position.y = mouseY * 10 // Adjust multiplier as needed
-    } else {
-      console.error('Mesh or mesh position is undefined')
-    }
-    */
 
     const deltaX = mouseX - this.mouse.x
-    const deltaY = mouseY - this.mouse.y
     const frameChangeSpeed = 60.0
 
     this.currentFrameIndex += deltaX * frameChangeSpeed
@@ -323,12 +364,6 @@ export default class MainScene {
       uv.y = (this.intersects[0].point.y / this.nbColumns) + 0.5
       this.touch.addTouch(uv)
     }
-
-    // Remove direct rotation.x assignment to avoid conflicts with GSAP
-    /*
-    const tiltAngle = deltaY * Math.PI / 4
-    this.mesh.rotation.x = tiltAngle
-    */
 
     // Update light position based on mouse movement
     if (this.light) {
@@ -381,6 +416,13 @@ export default class MainScene {
       gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
         this.uniforms.uPointSize.value = this.guiObj.pointSize
       })
+
+      // Add controls for DotScreenEffect
+      gui.add(this.dotScreenEffect, 'enabled').name('DotScreen Effect')
+      gui.add(this.dotScreenEffect.uniforms.get('scale'), 'value', 0.1, 2).name('DotScreen Scale')
+
+      // Add controls for GlitchEffect
+      gui.add(this.glitchEffect, 'enabled').name('Glitch Effect')
     } catch (error) {
       console.error('Error setting up GUI:', error)
     }
@@ -447,9 +489,9 @@ export default class MainScene {
     })
 
     this.chromaticAberrationEffect = new ChromaticAberrationEffect({
-      offset: new Vector2(0.001, 0.001),
+      offset: new Vector2(0.002, 0.02),
       radialModulation: true,
-      modulationOffset: 0.15,
+      modulationOffset: 0.7,
     })
 
     this.hueSaturationEffect = new HueSaturationEffect({
@@ -464,10 +506,18 @@ export default class MainScene {
 
     // Add chromatic aberration effect to a separate EffectPass
     this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect))
+
+    // Add DotScreenEffect
+    // this.dotScreenEffect = new DotScreenEffect({ scale: 0.0005 })
+    // this.composer.addPass(new EffectPass(this.camera, this.dotScreenEffect))
+
+    // Add GlitchEffect
+    this.glitchEffect = new GlitchEffect()
+    this.composer.addPass(new EffectPass(this.camera, this.glitchEffect))
   }
 
   setLights() {
-    this.light = new PointLight(0xffffff, 1) // Corrected usage
+    this.light = new PointLight('#ffffff', 1) // Corrected usage
     this.light.position.set(0, 0, 100)
     this.scene.add(this.light)
   }
@@ -478,6 +528,10 @@ export default class MainScene {
     if (this.controls) this.controls.update()
 
     this.uniforms.uTime.value = time * 0.001
+
+    if (this.randomMesh) {
+      this.randomMesh.material.uniforms.uTime.value = time * 0.001
+    }
 
     this.renderer.render(this.scene, this.camera)
     this.composer.render()
