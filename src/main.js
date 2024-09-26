@@ -1,16 +1,31 @@
+// ===== Filename: src/main.js =====
+
+import './scss/style.scss'  // Import the main SCSS file
 import MainScene from './js/components/scene.js'
 import { gsap } from 'gsap'
 import { Draggable } from 'gsap/Draggable'
 
 gsap.registerPlugin(Draggable)
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM Content Loaded')
+window.addEventListener('load', () => {
+    console.log('Window loaded')
+    initializeApp()
+})
+
+function initializeApp() {
+    console.log('Initializing app')
     const mainScene = new MainScene()
     console.log('MainScene initialized:', mainScene)
 
     const cursor = document.querySelector(".cursor")
-    const targets = document.querySelectorAll(".target")
+    const homeloaderblack = document.querySelector(".homeloaderblack")
+    const sections = document.querySelectorAll('section')
+    const menuItems = document.querySelectorAll('.target')
+
+    console.log('Cursor element:', cursor)
+    console.log('Homeloaderblack element:', homeloaderblack)
+    console.log('Sections:', sections)
+    console.log('Menu items:', menuItems)
 
     let cursorPosition = { x: 0, y: 0 }
     let animationFrameId = null
@@ -30,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let closestTarget = null
         let closestDistance = Infinity
 
-        targets.forEach(target => {
+        homeloaderblack.querySelectorAll('.target').forEach(target => {
             const rect = target.getBoundingClientRect()
             const targetCenter = {
                 x: rect.left + rect.width / 2,
@@ -83,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 duration: 0.2
             })
 
-            targets.forEach(target => {
+            homeloaderblack.querySelectorAll('.target').forEach(target => {
                 gsap.to(target.querySelector(".text"), {
                     x: 0,
                     y: 0,
@@ -94,21 +109,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleNavigation(targetText) {
-        const sections = document.querySelectorAll('section')
+        alert(`Navigating to: ${targetText}`)
+
         sections.forEach(section => {
             section.style.display = 'none'
+            section.classList.remove('active')
         })
 
         const targetSection = document.getElementById(targetText.toLowerCase())
         if (targetSection) {
             targetSection.style.display = 'block'
+            targetSection.classList.add('active')
+            targetSection.style.backgroundColor = 'rgba(255, 255, 255, 0.1)' // Add visible feedback
+        } else {
+            alert(`Section "${targetText}" not found.`)
         }
     }
 
-    targets.forEach(target => {
-        target.addEventListener('click', () => {
-            const targetText = target.querySelector('.text').textContent
-            handleNavigation(targetText)
+    // Use event delegation for better performance
+    homeloaderblack.addEventListener('click', (event) => {
+        const target = event.target.closest('.target')
+        if (target) {
+            const textElement = target.querySelector('.text')
+            const targetText = textElement ? textElement.textContent.trim() : null
+
+            if (targetText) {
+                alert(`Menu item clicked: ${targetText}`)
+                handleNavigation(targetText)
+            } else {
+                alert('Clicked target has no .text element.')
+            }
+        }
+    })
+
+    // Add individual click event listeners to each menu item
+    menuItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const textElement = item.querySelector('.text')
+            const targetText = textElement ? textElement.textContent.trim() : null
+
+            if (targetText) {
+                alert(`Menu item clicked directly: ${targetText}`)
+                handleNavigation(targetText)
+            } else {
+                alert('Clicked menu item has no .text element.')
+            }
         })
     })
 
@@ -118,13 +163,18 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault()
             const email = document.getElementById('email').value
             const message = document.getElementById('message').value
-            console.log('Form submitted:', { email, message })
-            // Here you would typically send this data to a server
-            alert('Thank you for your message. We will get back to you soon!')
+            alert(`Form submitted: Email - ${email}, Message - ${message}`)
             contactForm.reset()
         })
     }
 
     document.addEventListener("mousemove", updateCursor, { passive: true })
-})
 
+    // Add a simple click event listener to the body
+    document.body.addEventListener('click', (event) => {
+        alert(`Body clicked: ${event.target.tagName}`)
+    })
+
+    // Initialize the home section as active
+    handleNavigation('Home')
+}

@@ -1,8 +1,8 @@
-@import 'imports/index';
+// ===== Filename: src/scss/style.scss =====
 
+@import 'imports/index';
 @import 'includes/reset';
 @import 'includes/root';
-
 @import 'components/scene';
 @import 'components/title';
 @import 'components/footer';
@@ -16,7 +16,7 @@ body {
 }
 
 .title-container {
-    display: true; // Hide the yellow title
+    display: block;
     position: fixed;
     top: 0;
     left: 0;
@@ -52,22 +52,22 @@ body {
     position: relative;
     width: 100vw;
     height: 100vh;
-    z-index: 1;
+    z-index: 100;
     overflow: hidden;
-    pointer-events: none; // Allow events to pass through to underlying elements
+    pointer-events: none;
 }
 
 .homeloaderblack {
     cursor: none;
     position: fixed;
-    z-index: 5002;
-    justify-content: space-around; // Distribute space evenly
-    align-items: center; // Center items vertically
+    z-index: 101;
+    justify-content: space-around;
+    align-items: center;
     width: 100vw;
     height: 100vh;
-    background-color: #000000;
+    background-color: transparent;
     display: flex;
-    pointer-events: none; // Allow events to pass through to underlying elements
+    pointer-events: none;
 }
 
 .text {
@@ -93,7 +93,8 @@ body {
     left: 10%;
     -webkit-transform: translate(-50%, -50%) rotate(0deg);
     transform: translate(-50%, -50%) rotate(0deg);
-    pointer-events: auto; // Ensure the element can receive mouse events
+    pointer-events: auto;
+    z-index: 102;
 }
 
 /* Green Tri Small */
@@ -102,16 +103,16 @@ body {
     position: relative;
     width: 80px;
     height: 80px;
-    border: solid 1px transparent;
+    border: solid 1px #ffffff;
     display: flex;
     justify-content: center;
     align-items: center;
     text-align: center;
     margin: 0 50px;
-    pointer-events: auto; // Ensure the element can receive mouse events
-
-    // Add these properties to position the menu items
+    pointer-events: auto;
+    cursor: pointer;
     top: 40%;
+    z-index: 103;
 }
 
 .scene {
@@ -130,12 +131,21 @@ section {
     left: 50%;
     transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, 0.7);
-    color: white;
+    color: #ffffff;
     padding: 20px;
     border-radius: 10px;
     max-width: 80%;
     max-height: 80%;
     overflow-y: auto;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    display: none;
+    z-index: 99;
+}
+
+section.active {
+    display: block;
+    opacity: 1;
 }
 
 #contact-form {
@@ -153,7 +163,7 @@ section {
     button {
         padding: 10px;
         background-color: #4CAF50;
-        color: white;
+        color: #ffffff;
         border: none;
         border-radius: 5px;
         cursor: pointer;
@@ -167,10 +177,10 @@ section {
 // Add media query for smaller screens
 @media (max-width: 768px) {
     .homeloaderblack {
-        flex-direction: column; // Stack vertically on small screens
+        flex-direction: column;
     }
 
     .target {
-        margin: 10px 0; // Add some vertical spacing between items
+        margin: 10px 0;
     }
 }

@@ -278,8 +278,6 @@ export default class MainScene {
     const vOffset = frameRow / this.uniforms.uSpriteRows.value
 
     this.uniforms.uTexOffset.value.set(uOffset, vOffset)
-
-    console.log(`Frame: ${frameIndex}, Sheet: ${sheetIndex}, Actual Frame: ${actualFrame}, Offset: (${uOffset}, ${vOffset})`)
   }
 
   handleMouseMove = (event) => {

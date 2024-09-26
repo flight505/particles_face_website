@@ -4,7 +4,7 @@ import * as path from 'path'
 
 export default defineConfig({
   root: 'src',
-  base: '/vite-threejs-template/', // for Github pages, otherwise use './'
+  base: './', // Use './' for local paths
   build: {
     outDir: '../dist',
   },
@@ -17,4 +17,11 @@ export default defineConfig({
     },
   },
   plugins: [glslify()],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        additionalData: `@import "@/scss/imports/index";` // Adjust the path as needed
+      }
+    }
+  }
 })
