@@ -394,7 +394,7 @@ export default class MainScene {
     window.addEventListener('mousemove', this.handleMouseMove, { passive: true })
   }
 
-  handleTouchMove = (e) => {
+  handleTouchMove = () => {
     this.ray.setFromCamera(this.mouse, this.camera)
     this.intersects = this.ray.intersectObjects([this.mesh])
 
@@ -420,7 +420,7 @@ export default class MainScene {
     this.renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.renderPass);
 
-    // Bloom effect
+    // Retro-style bloom effect with reduced intensity
     const bloomEffect = new BloomEffect({
       intensity: 2.5,
       luminanceThreshold: 0.05,
@@ -437,16 +437,16 @@ export default class MainScene {
     this.glitchEffect = new GlitchEffect({
       chromaticAberrationOffset: new Vector2(3, 3),
       delay: new Vector2(1.5, 3.5),
-      duration: new Vector2(0.2, 0.4),
+      duration: new Vector2(0.2, 0.4), // Shorter duration for less processing
       strength: new Vector2(0.3, 1.0),
       mode: GlitchMode.CONSTANT_WILD
     });
 
-    // Vignette effect
+    // Vignette effect for a classic look
     const vignetteEffect = new VignetteEffect({
       eskil: false,
-      offset: 0.1,
-      darkness: 0.9
+      offset: 0.2, // Increased offset for a more pronounced vignette
+      darkness: 0.4 // Reduced darkness for a softer vignette
     });
 
     // Noise effect
@@ -454,7 +454,7 @@ export default class MainScene {
       blendFunction: BlendFunction.OVERLAY,
       premultiply: true
     });
-    noiseEffect.blendMode.opacity.value = 0.15;
+    noiseEffect.blendMode.opacity.value = 0.05;
 
     const smaaEffect = new SMAAEffect();
 
@@ -466,7 +466,7 @@ export default class MainScene {
   }
 
   setLights() {
-    this.light = new PointLight('#f200ff', 1)
+    this.light = new PointLight('#ffffff', 1)
     this.light.position.set(0, 0, 100)
     this.scene.add(this.light)
   }

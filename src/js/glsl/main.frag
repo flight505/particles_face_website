@@ -17,7 +17,7 @@ uniform vec2 uResolution;
 // Varying UV Coordinates from Vertex Shader
 varying vec2 vTexCoords;
 
-// Add this to the list of varyings
+// Varying Alpha from Vertex Shader
 varying float vAlpha;
 
 float circle(vec2 uv, float border) {
@@ -61,7 +61,7 @@ void main() {
   float glow = sin(uTime * 2.0) * 0.5 + 0.5;
   
   // Apply brightness and glow
-  vec3 finalColor = tintedColor * (0.3 + glow * 0.5);
+  vec3 finalColor = tintedColor * (0.5 + glow * 0.5);
   
   // Add a stronger blue halo
   float halo = 1.0 - smoothstep(0.2, 0.5, length(gl_PointCoord - 0.5));
@@ -72,19 +72,6 @@ void main() {
 
   gl_FragColor = vec4(finalColor, sampledColor.a * mask * uProgress * vAlpha);
 
-  // Enhance the bloom effect
-  vec2 uv = gl_FragCoord.xy / uResolution.xy;
-  float bloomStrength = 0.4;
-  vec3 bloom = vec3(0.0);
-  for (float i = 0.0; i < 8.0; i++) {
-    float offset = (i / 7.0) * 0.03;
-    bloom += texture2D(uSprite1, uv + vec2(offset, offset)).rgb;
-    bloom += texture2D(uSprite1, uv - vec2(offset, offset)).rgb;
-  }
-  bloom /= 16.0;
-  
-  gl_FragColor.rgb += bloom * bloomStrength;
-
   // Slightly brighten the overall image
   gl_FragColor.rgb *= 1.0;
 
@@ -92,8 +79,7 @@ void main() {
   float brightness = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
 
   // Discard pixels if too transparent or too dark
-  if (gl_FragColor.a < 0.02 || brightness < 0.5) {
+  if (gl_FragColor.a < 0.05 || brightness < 0.55) {
     discard;
   }
 }
-
