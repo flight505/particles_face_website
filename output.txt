@@ -1,10 +1,9 @@
 
 ===== Filename: src/js/components/scene.js =====
 
-// ===== Filename: src/js/components/scene.js =====
+// Importing necessary modules and libraries
 
 import {
-  Color,
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
@@ -14,21 +13,36 @@ import {
   ShaderMaterial,
   Raycaster,
   Vector2,
-  LinearFilter,
-  ClampToEdgeWrapping,
+  AdditiveBlending,
+  PointLight,
+  Frustum,
+  Matrix4,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
 import LoaderManager from '@/js/managers/LoaderManager'
-import GUI from 'lil-gui'
-
 import vertexShader from '@/js/glsl/main.vert'
 import fragmentShader from '@/js/glsl/main.frag'
+import randomVertexShader from '@/js/glsl/random.vert'
+import randomFragmentShader from '@/js/glsl/random.frag'
 import { randFloat } from 'three/src/math/MathUtils'
 import gsap from 'gsap'
 import TouchTexture from './TouchTexture'
-import { sortPoints } from '@/js/utils/three'
 import { isTouch } from '@/js/utils/isTouch'
+import {
+  BloomEffect,
+  ChromaticAberrationEffect,
+  EffectComposer,
+  RenderPass,
+  EffectPass,
+  BlendFunction,
+  SMAAEffect,
+  SMAAPreset,
+  GlitchEffect,
+  VignetteEffect,
+  NoiseEffect,
+  GlitchMode,
+} from 'postprocessing'
 
 export default class MainScene {
   canvas
@@ -39,10 +53,11 @@ export default class MainScene {
   stats
   width
   height
-  guiObj = {
-    uProgress: 0,
-    pointSize: 1.5,
-  }
+  mouse = new Vector2(0, 0)
+  currentFrameIndex = 49
+  glitchEffect
+  frustum
+  projScreenMatrix
 
   constructor() {
     this.canvas = document.querySelector('.scene')
@@ -51,229 +66,321 @@ export default class MainScene {
     }
     this.width = window.innerWidth
     this.height = window.innerHeight
-
-    // Create touch texture for mouse particles animation
     this.touch = new TouchTexture()
-
+    this.frustum = new Frustum()
+    this.projScreenMatrix = new Matrix4()
     this.init().catch(error => {
       console.error('Initialization failed:', error)
-      // Optionally, display an error message to the user
     })
   }
 
   init = async () => {
     try {
-      // Preload assets before initiating the scene
       const assets = [
-        { name: 'sprite1', texture: './img/sprite1.jpg', flipY: true },
-        { name: 'sprite2', texture: './img/sprite2.jpg', flipY: true },
+        { name: 'sprite1', texture: './img/right1_sprite_sheet.png', flipY: true },
+        { name: 'sprite2', texture: './img/left1_sprite_sheet.png', flipY: true },
       ]
 
       await LoaderManager.load(assets)
       console.log('Loaded Textures:', LoaderManager.assets)
 
       this.setStats()
-      this.setGUI()
       this.setScene()
-      this.setRender()
+      this.setRenderer()
       this.setCamera()
       this.setControls()
       this.setParticlesGrid()
-      // this.setAxesHelper()
       this.setRaycaster()
-
+      this.setPostProcessing()
+      this.setLights()
       this.handleResize()
 
-      // start RAF
       this.events()
-
       this.animateIn()
-      this.uniforms.uProgress.value = 1.0
+
+      // Start the animation loop after initialization
+      this.draw(0)
     } catch (error) {
       console.error('Error during initialization:', error)
-      throw error // Re-throw to be caught in the constructor
+      throw error
     }
   }
 
-  /**
-   * Our Webgl renderer, an object that will draw everything in our canvas
-   * https://threejs.org/docs/?q=rend#api/en/renderers/WebGLRenderer
-   */
-  setRender() {
+  setRenderer() {
     try {
       this.renderer = new WebGLRenderer({
         canvas: this.canvas,
         antialias: true,
+        alpha: true,
       })
       this.renderer.setSize(this.width, this.height)
-      this.renderer.setPixelRatio(window.devicePixelRatio || 1)
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      this.renderer.setClearColor(0x000000, 0)
+      this.renderer.domElement.style.position = 'fixed'
+      this.renderer.domElement.style.top = '0'
+      this.renderer.domElement.style.left = '0'
+      this.renderer.domElement.style.zIndex = '1'
     } catch (error) {
       console.error('Error setting up WebGL renderer:', error)
       throw error
     }
   }
 
-  /**
-   * This is our scene, we'll add any object
-   * https://threejs.org/docs/?q=scene#api/en/scenes/Scene
-   */
   setScene() {
     this.scene = new Scene()
-    // this.scene.background = new Color(0xffffff)
   }
 
-  /**
-   * Our Perspective camera, this is the point of view that we'll have
-   * of our scene.
-   * A perscpective camera is mimicing the human eyes so something far we'll
-   * look smaller than something close
-   * https://threejs.org/docs/?q=pers#api/en/cameras/PerspectiveCamera
-   */
   setCamera() {
     const aspectRatio = this.width / this.height
     const fieldOfView = 60
     const nearPlane = 0.1
     const farPlane = 10000
 
-    // set classic camera
     this.camera = new PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane)
-    this.camera.position.set(0, 0, 125)
+    this.camera.position.set(0, 0, 220)
     this.camera.lookAt(0, 0, 0)
 
     this.scene.add(this.camera)
   }
 
-  /**
-   * Threejs controls to have controls on our scene
-   * https://threejs.org/docs/?q=orbi#examples/en/controls/OrbitControls
-   */
   setControls() {
     try {
       this.controls = new OrbitControls(this.camera, this.renderer.domElement)
       this.controls.enableDamping = true
-      this.controls.enableRotate = true // Enable rotation for user interaction
-      this.controls.enableZoom = true   // Enable zoom for user interaction
-      // this.controls.autoRotate = true
-      // this.controls.dampingFactor = 0.04
+      this.controls.enableRotate = true
+      this.controls.enableZoom = true
     } catch (error) {
       console.error('Error setting up OrbitControls:', error)
-      // Optionally, you might want to continue without controls
       this.controls = null
     }
   }
 
   setParticlesGrid() {
     try {
-      // Create a grid of particles
-
-      // Create a geometry
       const geometry = new BufferGeometry()
+      const { particles, initPositions, randoms, colorRandoms } = this.generateParticleAttributes()
+      this.setGeometryAttributes(geometry, particles, initPositions, randoms, colorRandoms)
+      this.initializeUniforms()
+      this.updateFrameOffset(this.currentFrameIndex)
+      this.createParticleMesh(geometry)
 
-      const particles = []
-      const initPositions = []
-      const multiplier = 16
-      const nbColumns = 9 * multiplier // 144
-      const nbLines = 16 * multiplier  // 256
+      // Initialize visibility attribute
+      const visibilityArray = new Float32Array(particles.length / 3)
+      visibilityArray.fill(1.0)
+      geometry.setAttribute('visibility', new BufferAttribute(visibilityArray, 1))
 
-      this.nbColumns = nbColumns
-      this.nbLines = nbLines
-
-      // Center the grid
-      const halfColumn = nbColumns / 2
-      const halfLines = nbLines / 2
-
-      // For each line/column, add a "particle" to the array
-      for (let i = 0; i < nbLines; i++) {
-        for (let y = 0; y < nbColumns; y++) {
-          const point = [i - halfLines, y - halfColumn, 0.0] // Centered coordinates
-
-          // Initialize Z with some random depth for displacement effect
-          const initPoint = [i - halfLines, y - halfColumn, randFloat(50, 150)] // Reduced z range for better visualization
-
-          particles.push(...point) // Spread the coordinates for Float32Array
-          initPositions.push(...initPoint)
-        }
-      }
-
-      const vertices = new Float32Array(particles)
-      const initPositionsFloat = new Float32Array(initPositions)
-
-      // Add the particles to the array as "position" and "initPosition"
-      // itemSize = 3 because there are 3 values (components) per vertex
-      geometry.setAttribute('position', new BufferAttribute(vertices, 3))
-      geometry.setAttribute('initPosition', new BufferAttribute(initPositionsFloat, 3))
-
-      geometry.center()
-
-      this.dpr = 2 // device pixel ratio
-      this.uniforms = {
-        uPointSize: { value: this.guiObj.pointSize },
-        uNbLines: { value: nbLines },
-        uNbColumns: { value: nbColumns },
-        uProgress: { value: this.guiObj.uProgress },
-        uTime: { value: 0.0 },
-        uTouch: { value: this.touch.texture },
-        uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
-
-        // Sprite sheet uniforms
-        uFrameIndex: { value: 0 },
-        uSpriteCols: { value: 5 },
-        uSpriteRows: { value: 10 },
-        uTotalFrames: { value: 100 },
-
-        // Sprite sheet textures
-        uSprite1: { value: LoaderManager.assets['sprite1'].texture }, // sampler2D
-        uSprite2: { value: LoaderManager.assets['sprite2'].texture }, // sampler2D
-
-        // New uniform for active sprite sheet in vertex shader
-        uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture }, // Initially sprite1
-      }
-
-      // Create a custom ShaderMaterial for this geometry
-      const customMaterial = new ShaderMaterial({
-        uniforms: this.uniforms,
-        vertexShader,
-        fragmentShader,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-      })
-      this.mesh = new Points(geometry, customMaterial)
-
-      this.scene.add(this.mesh)
     } catch (error) {
       console.error('Error setting up particle grid:', error)
       throw error
     }
   }
 
+  generateParticleAttributes() {
+    const particles = []
+    const initPositions = []
+    const randoms = []
+    const colorRandoms = []
+    const multiplier = 12 // Adjust the multiplier for more particles
+    this.nbColumns = 18 * multiplier
+    this.nbLines = 32 * multiplier
+
+    const halfColumn = this.nbColumns / 2
+    const halfLines = this.nbLines / 2
+
+    for (let i = 0; i < this.nbLines; i++) {
+      for (let j = 0; j < this.nbColumns; j++) {
+        const x = i - halfLines
+        const y = j - halfColumn
+        const z = 0
+        particles.push(x, y, z)
+
+        initPositions.push(
+          x + randFloat(-50, 50),
+          y + randFloat(-50, 50),
+          randFloat(-100, 100)
+        )
+        randoms.push(Math.random())
+        colorRandoms.push(Math.random())
+      }
+    }
+
+    return {
+      particles: new Float32Array(particles),
+      initPositions: new Float32Array(initPositions),
+      randoms: new Float32Array(randoms),
+      colorRandoms: new Float32Array(colorRandoms),
+    }
+  }
+
+  setGeometryAttributes(geometry, particles, initPositions, randoms, colorRandoms) {
+    geometry.setAttribute('position', new BufferAttribute(particles, 3))
+    geometry.setAttribute('initPosition', new BufferAttribute(initPositions, 3))
+    geometry.setAttribute('randoms', new BufferAttribute(randoms, 1))
+    geometry.setAttribute('colorRandoms', new BufferAttribute(colorRandoms, 1))
+    geometry.center()
+  }
+
+  initializeUniforms() {
+    this.dpr = Math.min(window.devicePixelRatio, 2)
+    this.uniforms = {
+      uPointSize: { value: 0.2 },
+      uNbLines: { value: this.nbLines },
+      uNbColumns: { value: this.nbColumns },
+      uProgress: { value: 0 },
+      uTime: { value: 0.0 },
+      uTouch: { value: this.touch.texture },
+      uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
+      uFrameIndex: { value: 0.0 }, // Explicitly use 0.0 to ensure it's a float
+      uSpriteCols: { value: 5 },
+      uSpriteRows: { value: 10 },
+      uTotalFrames: { value: 100 },
+      uSprite1: { value: LoaderManager.assets['sprite1'].texture },
+      uSprite2: { value: LoaderManager.assets['sprite2'].texture },
+      uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture },
+      uTexOffset: { value: new Vector2(0, 0) },
+      uDisplacementScale: { value: 30.0 },
+      uDisplacementBlend: { value: 0.0 },
+      uDispersion: { value: 1.0 },
+      uDistortionFrequency: { value: 0.1 },
+      uDistortionAmplitude: { value: 1.0 },
+      uRandomSeed: { value: Math.random() * 100 },
+      uResolution: { value: new Vector2(this.width, this.height) },
+    }
+  }
+
+  createParticleMesh(geometry) {
+    const customMaterial = new ShaderMaterial({
+      uniforms: this.uniforms,
+      vertexShader,
+      fragmentShader,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      blending: AdditiveBlending,
+    })
+    this.mesh = new Points(geometry, customMaterial)
+    this.scene.add(this.mesh)
+  }
+
+  updateFrameOffset(frameIndex) {
+    const framesPerSheet = 50
+    const sheetIndex = Math.floor(frameIndex / framesPerSheet)
+    let actualFrame = frameIndex % framesPerSheet
+
+    if (sheetIndex < 1) {
+      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value
+      actualFrame = 49 - actualFrame
+    } else {
+      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value
+    }
+
+    const frameCol = actualFrame % this.uniforms.uSpriteCols.value
+    const frameRow = Math.floor(actualFrame / this.uniforms.uSpriteCols.value)
+
+    const uOffset = frameCol / this.uniforms.uSpriteCols.value
+    const vOffset = frameRow / this.uniforms.uSpriteRows.value
+
+    this.uniforms.uTexOffset.value.set(uOffset, vOffset)
+
+    console.log(`Frame: ${frameIndex}, Sheet: ${sheetIndex}, Actual Frame: ${actualFrame}, Offset: (${uOffset}, ${vOffset})`)
+  }
+
+  handleMouseMove = (event) => {
+    const mouseX = (event.clientX / window.innerWidth) * 2 - 1
+    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1
+
+    console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY)
+    console.log('Mesh:', this.mesh)
+
+    const deltaX = mouseX - this.mouse.x
+    const frameChangeSpeed = 60.0
+
+    this.currentFrameIndex += deltaX * frameChangeSpeed
+    this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, this.uniforms.uTotalFrames.value - 1))
+
+    this.mouse.x = mouseX
+    this.mouse.y = mouseY
+
+    const rotateX = gsap.quickTo(this.mesh.rotation, 'x', { duration: 0.5, ease: 'circ.out' })
+    const rotateY = gsap.quickTo(this.mesh.rotation, 'y', { duration: 0.5, ease: 'circ.out' })
+
+    rotateX(-this.mouse.y * Math.PI / 64) // Negate this.mouse.y to reverse the tilt direction
+    rotateY(this.mouse.x * Math.PI / 64)
+
+    gsap.to(this.uniforms.uFrameIndex, {
+      value: this.currentFrameIndex,
+      duration: 0.3,
+      ease: 'power2.out',
+      onUpdate: () => {
+        this.updateFrameOffset(this.uniforms.uFrameIndex.value)
+      },
+    })
+
+    this.ray.setFromCamera(this.mouse, this.camera)
+    this.intersects = this.ray.intersectObjects([this.mesh])
+
+    if (this.intersects.length) {
+      const uv = new Vector2(0.5, 0.5)
+      uv.x = (this.intersects[0].point.x / this.nbLines) + 0.5
+      uv.y = (this.intersects[0].point.y / this.nbColumns) + 0.5
+      this.touch.addTouch(uv)
+    }
+
+    if (this.light) {
+      this.light.position.x = -this.mouse.x * 10
+      this.light.position.y = this.mouse.y * 10
+    }
+  }
+
   animateIn() {
-    // Animate progress uniform
     gsap.fromTo(
       this.uniforms.uProgress,
-      {
-        value: 0,
-      },
+      { value: 0 },
       {
         value: 1,
-        duration: 2.5,
-        ease: 'Power4.easeOut',
+        duration: 2.0,
+        ease: 'power3.out',
+        onUpdate: () => {
+          this.uniforms.uDisplacementBlend.value = this.uniforms.uProgress.value
+        },
+      }
+    )
+
+    gsap.fromTo(
+      this.uniforms.uDispersion,
+      { value: 1 },
+      {
+        value: 0,
+        duration: 2.0,
+        ease: 'power3.out',
+      }
+    )
+
+    // Animate distortion amplitude
+    gsap.fromTo(
+      this.uniforms.uDistortionAmplitude,
+      { value: 0 },
+      {
+        value: 1.5,
+        duration: 2.0,
+        ease: 'power2.inOut',
+      }
+    )
+
+    // Animate distortion frequency
+    gsap.fromTo(
+      this.uniforms.uDistortionFrequency,
+      { value: 0.05 },
+      {
+        value: 0.2,
+        duration: 3.0,
+        ease: 'power2.inOut',
+        yoyo: true,
+        repeat: -1,
       }
     )
   }
 
-  /**
-   * Axes Helper
-   * https://threejs.org/docs/?q=Axesh#api/en/helpers/AxesHelper
-   */
-  setAxesHelper() {
-    const axesHelper = new AxesHelper(3)
-    this.scene.add(axesHelper)
-  }
-
-  /**
-   * Build stats to display fps
-   */
   setStats() {
     try {
       this.stats = new Stats()
@@ -281,367 +388,188 @@ export default class MainScene {
       document.body.appendChild(this.stats.dom)
     } catch (error) {
       console.error('Error setting up stats:', error)
-      // Optionally continue without stats
       this.stats = null
     }
   }
 
-  setGUI() {
-    try {
-      const gui = new GUI()
-      gui.add(this.guiObj, 'uProgress', 0, 1, 0.01).onChange(() => {
-        this.uniforms.uProgress.value = this.guiObj.uProgress
-      }).name('Progress').listen()
-
-      // Ensure progress ends at 1
-      gsap.to(this.guiObj, {
-        uProgress: 1,
-        duration: 2.5,
-        ease: 'Power4.easeOut',
-        onUpdate: () => {
-          this.uniforms.uProgress.value = this.guiObj.uProgress
-        }
-      })
-      // Removed texture selection GUI as frame index now controls sprite sheets
-      gui.add(this.guiObj, 'pointSize', 0, 2).onChange(() => {
-        this.uniforms.uPointSize.value = this.guiObj.pointSize
-      })
-    } catch (error) {
-      console.error('Error setting up GUI:', error)
-      // Optionally continue without GUI
-    }
-  }
-
-  /**
-   * List of events
-   */
   events() {
     window.addEventListener('resize', this.handleResize, { passive: true })
-    this.draw(0)
+    window.addEventListener('mousemove', this.handleMouseMove, { passive: true })
   }
 
-  // EVENTS
+  handleTouchMove = () => {
+    this.ray.setFromCamera(this.mouse, this.camera)
+    this.intersects = this.ray.intersectObjects([this.mesh])
 
-  /**
-   * Request animation frame function
-   * This function is called 60/time per seconds with no performance issue
-   * Everything that happens in the scene is drawn here
-   * @param {Number} time
-   */
-  draw = (time) => {
-    if (this.stats) this.stats.begin()
-
-    if (this.controls) this.controls.update() // for damping
-
-    sortPoints(this.mesh, this.camera) // sort points to avoid render order issues due to transparency
-
-    // Update uTime
-    this.uniforms.uTime.value = time * 0.001 // Convert to seconds
-
-    this.renderer.render(this.scene, this.camera) // render scene
-
-    this.touch.update() // update touch texture
-
-    if (this.stats) this.stats.end()
-    this.raf = window.requestAnimationFrame(this.draw)
-  }
-
-  /**
-   * On resize, we need to adapt our camera based
-   * on the new window width and height and the renderer
-   */
-  handleResize = () => {
-    this.width = window.innerWidth
-    this.height = window.innerHeight
-
-    // Update camera
-    this.camera.aspect = this.width / this.height
-    this.camera.updateProjectionMatrix()
-
-    this.renderer.setPixelRatio(this.dpr)
-    this.renderer.setSize(this.width, this.height)
-
-    this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
+    if (this.intersects.length) {
+      const uv = new Vector2(0.5, 0.5)
+      uv.x = this.intersects[0].point.x / this.nbLines + 0.5
+      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5
+      this.touch.addTouch(uv)
+    }
   }
 
   setRaycaster() {
     this.ray = new Raycaster()
     this.mouse = new Vector2()
 
-    // get Mouse position
-
     if (isTouch()) {
       window.addEventListener('touchmove', this.handleTouchMove)
-    } else {
-      window.addEventListener('mousemove', this.handleMouseMove)
     }
   }
 
-  handleMouseMove = (e) => {
-    const x = (e.clientX / window.innerWidth) * 2 - 1;
-    const y = -(e.clientY / window.innerHeight) * 2 + 1;
-    this.mouse.x = x;
-    this.mouse.y = y;
+  setPostProcessing() {
+    this.composer = new EffectComposer(this.renderer);
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
 
-    // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.clientX / window.innerWidth;
-
-    // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
-
-    // Smoothly interpolate the frame index using GSAP for smoother transitions
-    gsap.to(this.uniforms.uFrameIndex, {
-      value: frameIndex,
-      duration: 0.3, // Adjust duration as needed
-      ease: 'power2.out',
-      onUpdate: () => {
-        // Determine active sprite sheet based on frameIndex
-        const framesPerSheet = 50.0; // As each sheet has 50 frames
-        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
-
-        if (sheetIndex < 1) {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
-        } else {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
-        }
-
-        // Calculate frame within the active sprite sheet
-        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
-
-        // Calculate column and row for current frame
-        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
-        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
-
-        // Calculate UV offset for the current frame
-        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
-        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
-
-        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
-      },
+    // Retro-style bloom effect with reduced intensity
+    const bloomEffect = new BloomEffect({
+      intensity: 2.5,
+      luminanceThreshold: 0.05,
+      luminanceSmoothing: 0.7,
+      blendFunction: BlendFunction.SCREEN
     });
 
-    // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera);
-    this.intersects = this.ray.intersectObjects([this.mesh]);
-
-    if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5);
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
-      this.touch.addTouch(uv);
-    }
-  }
-
-  handleTouchMove = (e) => {
-    // Same as mouse move but for touch devices
-    const x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
-    const y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
-
-    this.mouse.x = x;
-    this.mouse.y = y;
-
-    // Calculate normalized mouse X position (0 to 1)
-    const normalizedX = e.touches[0].clientX / window.innerWidth;
-
-    // Map to frame index (float)
-    const frameIndex = normalizedX * (this.uniforms.uTotalFrames.value - 1);
-
-    // Smoothly interpolate the frame index using GSAP
-    gsap.to(this.uniforms.uFrameIndex, {
-      value: frameIndex,
-      duration: 0.3, // Adjust duration as needed
-      ease: 'power2.out',
-      onUpdate: () => {
-        // Determine active sprite sheet based on frameIndex
-        const framesPerSheet = 50.0; // As each sheet has 50 frames
-        const sheetIndex = Math.floor(this.uniforms.uFrameIndex.value / framesPerSheet);
-
-        if (sheetIndex < 1) {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value;
-        } else {
-          this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value;
-        }
-
-        // Calculate frame within the active sprite sheet
-        const frameInSheet = Math.floor(this.uniforms.uFrameIndex.value % framesPerSheet);
-
-        // Calculate column and row for current frame
-        const frameCol = frameInSheet % this.uniforms.uSpriteCols.value;
-        const frameRow = Math.floor(frameInSheet / this.uniforms.uSpriteCols.value);
-
-        // Calculate UV offset for the current frame
-        const uOffset = frameCol / this.uniforms.uSpriteCols.value;
-        const vOffset = frameRow / this.uniforms.uSpriteRows.value;
-
-        this.uniforms.uTexOffset.value.set(uOffset, vOffset);
-      },
+    // Chromatic aberration effect
+    this.chromaticAberrationEffect = new ChromaticAberrationEffect({
+      offset: new Vector2(0.004, 0.004),
     });
 
-    // From the mouse position, use a raycaster to know when the 2D plane is being touched
-    this.ray.setFromCamera(this.mouse, this.camera);
-    this.intersects = this.ray.intersectObjects([this.mesh]);
+    // Glitch effect
+    this.glitchEffect = new GlitchEffect({
+      chromaticAberrationOffset: new Vector2(3, 3),
+      delay: new Vector2(1.5, 3.5),
+      duration: new Vector2(0.2, 0.4), // Shorter duration for less processing
+      strength: new Vector2(0.3, 1.0),
+      mode: GlitchMode.CONSTANT_WILD
+    });
 
-    if (this.intersects.length) {
-      const uv = new Vector2(0.5, 0.5);
-      uv.x = this.intersects[0].point.x / this.nbLines + 0.5;
-      uv.y = this.intersects[0].point.y / this.nbColumns + 0.5;
-      this.touch.addTouch(uv);
-    }
-  }
-}
+    // Vignette effect for a classic look
+    const vignetteEffect = new VignetteEffect({
+      eskil: false,
+      offset: 0.2, // Increased offset for a more pronounced vignette
+      darkness: 0.4 // Reduced darkness for a softer vignette
+    });
 
+    // Noise effect
+    const noiseEffect = new NoiseEffect({
+      blendFunction: BlendFunction.OVERLAY,
+      premultiply: true
+    });
+    noiseEffect.blendMode.opacity.value = 0.05;
 
-===== Filename: src/js/components/TouchTexture.js =====
+    const smaaEffect = new SMAAEffect();
 
-import { Texture } from 'three'
-
-function outSine(n) {
-  return Math.sin((n * Math.PI) / 2);
-}
-
-export default class TouchTexture {
-  constructor(options = {}) {
-    this.size = options.size || 64
-    this.maxAge = options.maxAge || 60
-    this.radius = options.radius || 0.15
-    this.trail = []
-    this.canDraw = true
-
-    this.initTexture()
-  }
-
-  initTexture() {
-    // create a 2D canvas to store the information of the cursor
-    this.canvas = document.createElement('canvas')
-    this.canvas.width = this.canvas.height = this.size
-    this.ctx = this.canvas.getContext('2d')
-    this.ctx.fillStyle = 'black'
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-    // draw black background
-
-    // use the canvas as a texture
-    this.texture = new Texture(this.canvas)
-
-    this.canvas.id = 'touchTexture'
-    this.canvas.style.width = this.canvas.style.height = `150px`
-    this.canvas.style.position = 'fixed'
-    this.canvas.style.top = '0'
-    this.canvas.style.zIndex = '10000'
-
-    // No need to add it to the body,
-    // document.body.appendChild(this.canvas)
-    this.canvas.style.display = 'none'
+    // Add effects in separate passes
+    this.composer.addPass(new EffectPass(this.camera, bloomEffect));
+    this.composer.addPass(new EffectPass(this.camera, this.chromaticAberrationEffect));
+    this.composer.addPass(new EffectPass(this.camera, vignetteEffect, noiseEffect, smaaEffect));
+    this.composer.addPass(new EffectPass(this.camera, this.glitchEffect));
   }
 
-  update() {
-    this.clear()
-    if (!this.canDraw) {
-      return false
-    }
+  setLights() {
+    this.light = new PointLight('#ffffff', 1)
+    this.light.position.set(0, 0, 100)
+    this.scene.add(this.light)
+  }
 
-    // age points
-    this.trail.forEach((point, i) => {
-      point.age++
-      // remove old
-      if (point.age > this.maxAge) {
-        this.trail.splice(i, 1)
+  updateFrustum() {
+    this.projScreenMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+    this.frustum.setFromProjectionMatrix(this.projScreenMatrix)
+  }
+
+  updateParticleVisibility() {
+    if (!this.mesh) return
+
+    const positions = this.mesh.geometry.attributes.position
+    const visibility = this.mesh.geometry.attributes.visibility
+
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i)
+      const y = positions.getY(i)
+      const z = positions.getZ(i)
+
+      if (this.frustum.containsPoint({ x, y, z })) {
+        visibility.setX(i, 1.0)
+      } else {
+        visibility.setX(i, 0.0)
       }
-    })
-
-    // draw white points
-    this.trail.forEach((point, i) => {
-      this.drawTouch(point, i)
-    })
-
-    // update texture
-    this.texture.needsUpdate = true
-  }
-
-  clear() {
-    // clear canvas
-    this.ctx.fillStyle = 'black'
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-  }
-
-  addTouch(point) {
-    if (this.trail.length > 100) this.trail.shift() // Example cap
-    let force = 0
-    const last = this.trail[this.trail.length - 1]
-    if (last) {
-      const dx = last.x - point.x
-      const dy = last.y - point.y
-      const dd = dx * dx + dy * dy
-      force = Math.min(dd * 10000, 1)
-    }
-    this.trail.push({ x: point.x, y: point.y, age: 0, force })
-  }
-
-  drawTouch(point) {
-    // draw point based on size and age
-    const pos = {
-      x: point.x * this.size,
-      y: (1 - point.y) * this.size,
     }
 
-    let intensity = 1
-    if (point.age < this.maxAge * 0.3) {
-      intensity = outSine(point.age / (this.maxAge * 0.3), 0, 1, 1)
+    visibility.needsUpdate = true
+  }
+
+  draw = (time) => {
+    if (this.stats) this.stats.begin()
+
+    if (this.controls) this.controls.update()
+
+    // Update frustum and particle visibility
+    this.updateFrustum()
+    this.updateParticleVisibility()
+
+    if (this.uniforms && this.uniforms.uTime) {
+      this.uniforms.uTime.value = time * 0.001
     } else {
-      intensity = outSine(1 - (point.age - this.maxAge * 0.3) / (this.maxAge * 0.7), 0, 1, 1)
+      console.warn('uTime uniform is not defined')
     }
 
-    intensity *= point.force
+    this.renderer.render(this.scene, this.camera)
+    this.composer.render()
 
-    const radius = this.size * this.radius * intensity
-    const grd = this.ctx.createRadialGradient(pos.x, pos.y, radius * 0.25, pos.x, pos.y, radius)
-    // draw gradient white circles
-    grd.addColorStop(0, `rgba(255, 255, 255, 0.35)`)
-    grd.addColorStop(1, 'rgba(0, 0, 0, 0.0)')
+    this.touch.update()
 
-    this.ctx.beginPath()
-    this.ctx.fillStyle = grd
-    this.ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2)
-    this.ctx.fill()
-    // fill canvas
+    if (this.stats) this.stats.end()
+    this.raf = window.requestAnimationFrame(this.draw)
+
+    // Update random seed periodically for variety in distortion
+    if (Math.random() < 0.01) { // Change seed roughly every 100 frames
+      this.uniforms.uRandomSeed.value = Math.random() * 100
+    }
   }
 
-  reset() {
-    // reset canvas
-    this.trail = []
-    this.canDraw = false
-    this.ctx.beginPath()
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.0)'
-    this.ctx.fill()
-    clearTimeout(this.timeout)
-    this.timeout = setTimeout(() => (this.canDraw = true), 0)
+  handleResize = () => {
+    this.width = window.innerWidth
+    this.height = window.innerHeight
+
+    this.camera.aspect = this.width / this.height
+    this.camera.updateProjectionMatrix()
+
+    this.renderer.setPixelRatio(this.dpr)
+    this.renderer.setSize(this.width, this.height)
+    this.composer.setSize(this.width, this.height)
+
+    this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
+    this.uniforms.uResolution.value.set(this.width, this.height)
   }
 }
-
 
 
 ===== Filename: src/js/glsl/main.frag =====
 
-// ===== Filename: src/js/glsl/main.frag =====
-
-// Fragment Shader with Sprite Sheet Blending for Dynamic Coloring and Opacity
-precision mediump float;
+precision highp float;
 
 // Sprite Sheet Samplers
 uniform sampler2D uSprite1;
 uniform sampler2D uSprite2;
 
 // Frame Control Uniforms
-uniform float uFrameIndex;
+uniform highp float uFrameIndex;
 uniform float uSpriteCols;
 uniform float uSpriteRows;
 
 // Animation Progress
 uniform float uProgress;
+uniform float uTime;
+uniform vec2 uResolution;
 
 // Varying UV Coordinates from Vertex Shader
 varying vec2 vTexCoords;
 
-// Function to Create a Circular Opacity Mask
+// Varying Alpha from Vertex Shader
+varying float vAlpha;
+
 float circle(vec2 uv, float border) {
   float radius = 0.5;
   float dist = radius - distance(uv, vec2(0.5));
@@ -649,300 +577,626 @@ float circle(vec2 uv, float border) {
 }
 
 void main() {
-  // Total Frames per Sprite Sheet
+  // Total frames per sprite sheet
   float framesPerSheet = 50.0;
 
-  // Determine Current Sprite Sheet and Frame Within the Sheet
-  float sheetIndex = floor(uFrameIndex / framesPerSheet);
-  float frameInSheet = mod(uFrameIndex, framesPerSheet);
-
-  // Boolean to Select Sprite Sheet (sprite1 if true, sprite2 if false)
-  bool useSprite1 = sheetIndex < 1.0;
+  // Use uFrameIndex to determine which frame to show
+  float frameIndex = floor(uFrameIndex);
+  
+  // Determine current sprite sheet
+  float sheetIndex = floor(frameIndex / framesPerSheet);
+  float frameInSheet = mod(frameIndex, framesPerSheet);
 
   // Calculate Column and Row for Current Frame
   float frameCol = mod(frameInSheet, uSpriteCols);
-  float frameRow = floor(frameInSheet / uSpriteCols);
-
-  // Define Frame Dimensions in UV Space
+  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
+  
+  // Define frame dimensions in UV space
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
 
-  // Calculate UV Offset for Current Frame
+  // Calculate UV offset for current frame
   vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
 
-  // Calculate UV Within the Frame
-  vec2 uvWithinFrame = vTexCoords * vec2(frameWidth, frameHeight);
+  // Final UV coordinates for current frame
+  vec2 finalUV = frameUVOffset + vTexCoords * vec2(frameWidth, frameHeight);
 
-  // Final UV Coordinates for Current Frame
-  vec2 finalUV = frameUVOffset + uvWithinFrame;
+  // Sample texture from the correct sprite sheet
+  vec4 sampledColor = sheetIndex < 1.0 ? texture2D(uSprite1, finalUV) : texture2D(uSprite2, finalUV);
 
-  // **Flip the Y-coordinate of the UV**
-  finalUV.y = 1.0 - finalUV.y;
+  // Adjust color to create a stronger blue-green tint
+  vec3 tintedColor = mix(sampledColor.rgb, vec3(0.0, 0.8, 1.0), 0.2);
+  
+  // Enhance the pulsating glow effect
+  float glow = sin(uTime * 2.0) * 0.5 + 0.5;
+  
+  // Apply brightness and glow
+  vec3 finalColor = tintedColor * (0.5 + glow * 0.5);
+  
+  // Add a stronger blue halo
+  float halo = 1.0 - smoothstep(0.2, 0.5, length(gl_PointCoord - 0.5));
+  finalColor += vec3(0.0, 0.6, 1.0) * halo * 0.8;
 
-  // Sample Texture from the Correct Sprite Sheet
-  vec4 sampledColor;
-  if (useSprite1) {
-    sampledColor = texture2D(uSprite1, finalUV);
-  } else {
-    sampledColor = texture2D(uSprite2, finalUV);
-  }
+  // Apply a softer circular mask
+  float mask = smoothstep(0.5, 0.4, length(gl_PointCoord - 0.5));
 
-  // Apply the Sampled Texture Color
-  gl_FragColor.rgb = sampledColor.rgb;
+  gl_FragColor = vec4(finalColor, sampledColor.a * mask * uProgress * vAlpha);
 
-  // Discard Pixels if Too Dark to Create Transparency
-  if (gl_FragColor.r < 0.1) {
+  // Slightly brighten the overall image
+  gl_FragColor.rgb *= 1.0;
+
+  // Calculate brightness
+  float brightness = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+
+  // Discard pixels if too transparent or too dark
+  if (gl_FragColor.a < 0.05 || brightness < 0.55) {
     discard;
   }
-
-  // Apply Circular Opacity Mask and Animation Progress
-  gl_FragColor.a = circle(gl_PointCoord, 0.2) * uProgress;
 }
 
 
 ===== Filename: src/js/glsl/main.vert =====
 
-// ===== Filename: src/js/glsl/main.vert =====
+// Vertex Shader with Z-Axis Displacement and Row Distortion
+precision highp float;
 
-// Vertex Shader with Sprite Sheet-Based Z-Axis Displacement
-precision mediump float;
-
-// Point Size Uniform
 uniform float uPointSize;
-
-// Animation Progress
 uniform float uProgress;
-
-// Time Uniform (Unused in Current Shader but Kept for Potential Extensions)
 uniform float uTime;
-
-// Touch Texture Sampler (Unused in Current Shader but Kept for Potential Extensions)
 uniform sampler2D uTouch;
-
-// Grid Dimensions
 uniform float uNbLines;
 uniform float uNbColumns;
-
-// Scaling for Point Size Based on Height and Device Pixel Ratio
 uniform float uScaleHeightPointSize;
 
-// Sprite Sheet Uniforms
+attribute vec3 initPosition;
+attribute float randoms;
+attribute float visibility;
+
+varying vec2 vTexCoords;
+varying float vAlpha;
+
 uniform sampler2D uSpriteSheet;    // Active Sprite Sheet (sprite1 or sprite2)
 uniform vec2 uTexOffset;           // UV Offset to Select Current Frame
 uniform float uDisplacementScale;  // Intensity of Z-Axis Displacement
-uniform float uSpriteCols;         // Number of Columns in Sprite Sheet
-uniform float uSpriteRows;         // Number of Rows in Sprite Sheet
+uniform float uSpriteCols;         // Number of columns in the sprite sheet
+uniform float uSpriteRows;         // Number of rows in the sprite sheet
+uniform float uFrameIndex;         // Current frame index
+uniform float uDisplacementBlend;  // New uniform to blend displacement effect
+uniform float uDispersion;
+uniform float uDistortionFrequency;
+uniform float uDistortionAmplitude;
+uniform float uRandomSeed;
 
-// Attributes
-attribute vec3 initPosition;
+// Function to generate a pseudo-random value
+float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+}
 
-// Varying UV Coordinates to Pass to Fragment Shader
-varying vec2 vTexCoords;
+// Add this function at the top of your shader
+vec3 mod289(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 mod289(vec4 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 permute(vec4 x) {
+  return mod289(((x*34.0)+1.0)*x);
+}
+
+vec4 taylorInvSqrt(vec4 r) {
+  return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+float snoise(vec3 v) {
+  const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+  const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+
+  // First corner
+  vec3 i  = floor(v + dot(v, C.yyy) );
+  vec3 x0 =   v - i + dot(i, C.xxx) ;
+
+  // Other corners
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min( g.xyz, l.zxy );
+  vec3 i2 = max( g.xyz, l.zxy );
+
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy;
+  vec3 x3 = x0 - D.yyy;
+
+  // Permutations
+  i = mod289(i);
+  vec4 p = permute( permute( permute(
+             i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+           + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+           + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+  // Gradients: 7x7 points over a square, mapped onto an octahedron.
+  // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+  float n_ = 0.142857142857;
+  vec3  ns = n_ * D.wyz - D.xzx;
+
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_ );
+
+  vec4 x = x_ *ns.x + ns.yyyy;
+  vec4 y = y_ *ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+
+  vec4 b0 = vec4( x.xy, y.xy );
+  vec4 b1 = vec4( x.zw, y.zw );
+
+  vec4 s0 = floor(b0)*2.0 + 1.0;
+  vec4 s1 = floor(b1)*2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+  vec3 p0 = vec3(a0.xy,h.x);
+  vec3 p1 = vec3(a0.zw,h.y);
+  vec3 p2 = vec3(a1.xy,h.z);
+  vec3 p3 = vec3(a1.zw,h.w);
+
+  // Normalise gradients
+  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+  p0 *= norm.x;
+  p1 *= norm.y;
+  p2 *= norm.z;
+  p3 *= norm.w;
+
+  // Mix final noise value
+  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                dot(p2,x2), dot(p3,x3) ) );
+}
 
 void main() {
-  // Initialize Transformed Position with Z-Axis Displacement Based on uProgress
-  vec3 transformed = vec3(position.x, position.y, initPosition.z * (1.0 - uProgress));
-
-  // Calculate Normalized UVs Based on Particle Position Within the Grid
-  // Mapping X from [-halfLines, +halfLines] to [0,1]
-  // Mapping Y from [-halfColumns, +halfColumns] to [0,1]
+  // Calculate normalized UVs based on particle position within the grid
   float normalizedX = (position.x + (uNbLines / 2.0)) / float(uNbLines);
   float normalizedY = (position.y + (uNbColumns / 2.0)) / float(uNbColumns);
   vTexCoords = vec2(normalizedX, normalizedY);
 
-  // Sample the Sprite Sheet to Get Displacement Data
-  vec4 spriteData = texture2D(uSpriteSheet, uTexOffset + vTexCoords * vec2(1.0 / uSpriteCols, 1.0 / uSpriteRows));
+  // Calculate frame index and UV offset
+  float framesPerSheet = 50.0;
+  float frameIndex = floor(uFrameIndex);
+  float sheetIndex = floor(frameIndex / framesPerSheet);
+  float frameInSheet = mod(frameIndex, framesPerSheet);
 
-  // Use the Red Channel from Sprite Data to Determine Z-Axis Displacement
-  float displacement = spriteData.r * uDisplacementScale;
+  float frameCol = mod(frameInSheet, uSpriteCols);
+  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
+
+  float frameWidth = 1.0 / uSpriteCols;
+  float frameHeight = 1.0 / uSpriteRows;
+
+  vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
+  vec2 spriteUV = frameUVOffset + vTexCoords * vec2(frameWidth, frameHeight);
+
+  // Sample sprite sheet
+  vec4 spriteData = texture2D(uSpriteSheet, spriteUV);
+  float brightness = spriteData.r;
+
+  // Simplified displacement calculation
+  float displacement = mix(initPosition.z, brightness * uDisplacementScale, uDisplacementBlend);
+
+  // Simplified position calculation
+  vec3 transformed = mix(position, initPosition, uDispersion);
   transformed.z += displacement;
 
-  // Project the Transformed Vertex Position
+  // Reduce noise effect
+  vec3 noiseInput = vec3(transformed.xy * 0.02, uTime * 0.02);
+  transformed += vec3(
+    snoise(noiseInput),
+    snoise(noiseInput + 100.0),
+    snoise(noiseInput + 200.0)
+  ) * 0.1;
+
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
-  // Adjust Point Size Based on Z-Axis for Depth Perception
-  gl_PointSize = uPointSize * (uScaleHeightPointSize / -mvPosition.z);
+  // Increase point size
+  gl_PointSize = (uPointSize * 2.0 + randoms * 0.2) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
+
+  // Set the alpha to 0 for invisible particles
+  vAlpha = visibility;
 }
 
 
-===== Filename: src/js/managers/LoaderManager.js =====
+===== Filename: src/scss/style.scss =====
 
-// ===== Filename: src/js/managers/LoaderManager.js =====
+@import 'imports/index';
 
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
-import { TextureLoader, LinearFilter, ClampToEdgeWrapping } from 'three'
+@import 'includes/reset';
+@import 'includes/root';
 
-class LoaderManager {
-  assets
-  constructor() {
-    this.assets = {} // Dictionary of assets
+@import 'components/scene';
+@import 'components/title';
+@import 'components/footer';
 
-    this.textureLoader = new TextureLoader()
-    this.GLTFLoader = new GLTFLoader()
-    this.OBJLoader = new OBJLoader()
-    this.DRACOLoader = new DRACOLoader()
-    this.FontLoader = new FontLoader()
-  }
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #000000;
+    color: #fff;
+    font-family: 'VT323', monospace;
+}
 
-  load = (data) =>
-    new Promise((resolve, reject) => {
-      const promises = []
-      for (let i = 0; i < data.length; i++) {
-        const { name, gltf, texture, img, font, obj, flipY } = data[i]
+.title-container {
+    display: true; // Hide the yellow title
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 100%);
+    z-index: 10;
+}
 
-        if (!this.assets[name]) {
-          this.assets[name] = {}
+.title {
+    font-size: 4rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(165, 199, 246, 0.5);
+    margin: 0;
+    text-align: center;
+    letter-spacing: 2px;
+    transform: perspective(500px) rotateX(10deg);
+    animation: titlePulse 2s infinite alternate;
+}
+
+@keyframes titlePulse {
+    from {
+        text-shadow: 0 0 10px rgba(165, 199, 246, 0.5);
+    }
+
+    to {
+        text-shadow: 0 0 20px rgba(165, 199, 246, 0.8), 0 0 30px rgba(165, 199, 246, 0.6);
+    }
+}
+
+.swipeloaders {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none; // Allow events to pass through to underlying elements
+}
+
+.homeloaderblack {
+    cursor: none;
+    position: fixed;
+    z-index: 5002;
+    justify-content: space-around; // Distribute space evenly
+    align-items: center; // Center items vertically
+    width: 100vw;
+    height: 100vh;
+    background-color: #000000;
+    display: flex;
+    pointer-events: none; // Allow events to pass through to underlying elements
+}
+
+.text {
+    position: relative;
+    color: #ffffff;
+    margin: 0;
+    flex: auto;
+    user-select: none;
+    font-size: 1.0rem;
+    font-weight: bold;
+}
+
+.target,
+.cursor {
+    border-radius: 100%;
+    width: 0px;
+    height: 0px;
+    border: dashed 1px #ffffff;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    -webkit-transform: translate(-50%, -50%) rotate(0deg);
+    transform: translate(-50%, -50%) rotate(0deg);
+    pointer-events: auto; // Ensure the element can receive mouse events
+}
+
+/* Green Tri Small */
+.target {
+    border-radius: 0;
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border: solid 1px transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    margin: 0 50px;
+    pointer-events: auto; // Ensure the element can receive mouse events
+
+    // Add these properties to position the menu items
+    top: 40%;
+}
+
+.scene {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    background: transparent;
+}
+
+section {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 80%;
+    max-height: 80%;
+    overflow-y: auto;
+}
+
+#contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    input,
+    textarea {
+        padding: 5px;
+        border-radius: 5px;
+        border: none;
+    }
+
+    button {
+        padding: 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+
+        &:hover {
+            background-color: #45a049;
         }
+    }
+}
 
-        if (gltf) {
-          promises.push(this.loadGLTF(gltf, name))
+// Add media query for smaller screens
+@media (max-width: 768px) {
+    .homeloaderblack {
+        flex-direction: column; // Stack vertically on small screens
+    }
+
+    .target {
+        margin: 10px 0; // Add some vertical spacing between items
+    }
+}
+
+
+===== Filename: src/index.html =====
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <link rel="icon" type="image/x-icon" href="./img/favicon.svg" />
+  <link rel="stylesheet" href="./scss/style.scss" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <title>3D Face Animation</title>
+</head>
+
+<body>
+  <div class="title-container">
+    <h1 class="title">Vang's Vital Insights</h1>
+  </div>
+  <div class="swipeloaders">
+    <div class="homeloaderblack">
+      <div class="target">
+        <p class="text">Home</p>
+      </div>
+      <div class="target">
+        <p class="text">Insights</p>
+      </div>
+      <div class="target">
+        <p class="text">About</p>
+      </div>
+      <div class="target">
+        <p class="text">Contact</p>
+      </div>
+      <div class="cursor" id="cursor"></div>
+    </div>
+  </div>
+  <canvas class="scene"></canvas>
+
+  <!-- Sections for each page -->
+  <section id="home" style="display: block;">
+    <h2>Home</h2>
+    <p>Welcome to Vang's Vital Insights.</p>
+  </section>
+  <section id="insights" style="display: none;">
+    <h2>Vital Insights</h2>
+    <p>Discover the power of data-driven decision making:</p>
+    <ul>
+      <li>Uncover hidden patterns in your business data</li>
+      <li>Optimize operations with predictive analytics</li>
+      <li>Transform raw data into actionable strategies</li>
+      <li>Stay ahead of market trends with real-time insights</li>
+    </ul>
+  </section>
+  <section id="about" style="display: none;">
+    <h2>About</h2>
+    <p>Vang's Vital Insights is a platform dedicated to sharing valuable information and perspectives on various topics.
+    </p>
+  </section>
+  <section id="contact" style="display: none;">
+    <h2>Contact</h2>
+    <form id="contact-form">
+      <label for="email">Email:</label>
+      <input type="email" id="email" required>
+      <label for="message">Message:</label>
+      <textarea id="message" required></textarea>
+      <button type="submit">Send</button>
+    </form>
+  </section>
+
+  <!-- Load GSAP and Draggable before main.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/Draggable.min.js"></script>
+  <script type="module" defer src="./main.js"></script>
+</body>
+
+</html>
+
+
+===== Filename: src/main.js =====
+
+import MainScene from './js/components/scene.js'
+import { gsap } from 'gsap'
+import { Draggable } from 'gsap/Draggable'
+
+gsap.registerPlugin(Draggable)
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Content Loaded')
+    const mainScene = new MainScene()
+    console.log('MainScene initialized:', mainScene)
+
+    const cursor = document.querySelector(".cursor")
+    const targets = document.querySelectorAll(".target")
+
+    let cursorPosition = { x: 0, y: 0 }
+    let animationFrameId = null
+
+    function updateCursor(e) {
+        cursorPosition.x = e.clientX
+        cursorPosition.y = e.clientY
+
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(animateCursor)
         }
+    }
 
-        if (texture) {
-          promises.push(this.loadTexture(texture, name, flipY))
+    function animateCursor() {
+        animationFrameId = null
+
+        let closestTarget = null
+        let closestDistance = Infinity
+
+        targets.forEach(target => {
+            const rect = target.getBoundingClientRect()
+            const targetCenter = {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            }
+
+            const distance = Math.hypot(
+                targetCenter.x - cursorPosition.x,
+                targetCenter.y - cursorPosition.y
+            )
+
+            if (distance < closestDistance) {
+                closestTarget = target
+                closestDistance = distance
+            }
+        })
+
+        if (closestTarget && closestDistance < closestTarget.getBoundingClientRect().width) {
+            const rect = closestTarget.getBoundingClientRect()
+            const targetCenter = {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            }
+
+            const angle = Math.atan2(targetCenter.y - cursorPosition.y, targetCenter.x - cursorPosition.x)
+            const distanceRatio = closestDistance / (rect.width / 2)
+
+            // Damping factor to reduce movement (adjust as needed)
+            const dampingFactor = 0.8
+
+            gsap.to(cursor, {
+                left: targetCenter.x - Math.cos(angle) * closestDistance * 0.5,
+                top: targetCenter.y - Math.sin(angle) * closestDistance * 0.5,
+                height: rect.height,
+                width: rect.width,
+                duration: 0.2
+            })
+
+            gsap.to(closestTarget.querySelector(".text"), {
+                x: -Math.cos(angle) * closestDistance * 0.5 * distanceRatio * dampingFactor,
+                y: -Math.sin(angle) * closestDistance * 0.5 * distanceRatio * dampingFactor,
+                duration: 0.2
+            })
+        } else {
+            gsap.to(cursor, {
+                left: cursorPosition.x,
+                top: cursorPosition.y,
+                height: 12,
+                width: 12,
+                duration: 0.2
+            })
+
+            targets.forEach(target => {
+                gsap.to(target.querySelector(".text"), {
+                    x: 0,
+                    y: 0,
+                    duration: 0.2
+                })
+            })
         }
+    }
 
-        if (img) {
-          promises.push(this.loadImage(img, name))
+    function handleNavigation(targetText) {
+        const sections = document.querySelectorAll('section')
+        sections.forEach(section => {
+            section.style.display = 'none'
+        })
+
+        const targetSection = document.getElementById(targetText.toLowerCase())
+        if (targetSection) {
+            targetSection.style.display = 'block'
         }
+    }
 
-        if (font) {
-          promises.push(this.loadFont(font, name))
-        }
-
-        if (obj) {
-          promises.push(this.loadObj(obj, name))
-        }
-      }
-
-      Promise.all(promises)
-        .then(() => resolve())
-        .catch(error => {
-          console.error('Error loading assets:', error)
-          reject(error)
+    targets.forEach(target => {
+        target.addEventListener('click', () => {
+            const targetText = target.querySelector('.text').textContent
+            handleNavigation(targetText)
         })
     })
 
-  loadGLTF(url, name) {
-    return new Promise((resolve, reject) => {
-      this.DRACOLoader.setDecoderPath('../scene/vendor/three/draco/')
-      this.GLTFLoader.setDRACOLoader(this.DRACOLoader)
-
-      this.GLTFLoader.load(
-        url,
-        (result) => {
-          this.assets[name].gltf = result
-          resolve(result)
-        },
-        undefined,
-        (e) => {
-          console.error(`Error loading GLTF ${name}:`, e)
-          reject(e)
-        }
-      )
-    })
-  }
-
-  loadTexture(url, name, flipY = true) {
-    if (!this.assets[name]) {
-      this.assets[name] = {}
+    const contactForm = document.getElementById('contact-form')
+    if (contactForm) {
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault()
+            const email = document.getElementById('email').value
+            const message = document.getElementById('message').value
+            console.log('Form submitted:', { email, message })
+            // Here you would typically send this data to a server
+            alert('Thank you for your message. We will get back to you soon!')
+            contactForm.reset()
+        })
     }
-    return new Promise((resolve, reject) => {
-      this.textureLoader.load(
-        url,
-        (result) => {
-          result.flipY = flipY
-          // Set texture parameters for optimal performance and quality
-          result.minFilter = LinearFilter
-          result.magFilter = LinearFilter
-          result.wrapS = ClampToEdgeWrapping
-          result.wrapT = ClampToEdgeWrapping
-          this.assets[name].texture = result
-          resolve(result)
-        },
-        undefined,
-        (e) => {
-          console.error(`Error loading texture ${name}:`, e)
-          reject(e)
-        }
-      )
-    })
-  }
 
-  loadImage(url, name) {
-    return new Promise((resolve, reject) => {
-      const image = new Image()
+    document.addEventListener("mousemove", updateCursor, { passive: true })
+})
 
-      image.onload = () => {
-        this.assets[name].img = image
-        resolve(image)
-      }
 
-      image.onerror = (e) => {
-        console.error(`Error loading image ${name}:`, e)
-        reject(e)
-      }
-
-      image.src = url
-    })
-  }
-
-  loadFont(url, name) {
-    // Convert font to typeface.json using https://gero3.github.io/facetype.js/
-    return new Promise((resolve, reject) => {
-      this.FontLoader.load(
-        url,
-        // onLoad callback
-        (font) => {
-          this.assets[name].font = font
-          resolve(font)
-        },
-        // onProgress callback
-        () =>
-        // xhr
-        {
-          // Optional: Implement progress feedback if needed
-        },
-        // onError callback
-        (err) => {
-          console.error(`Error loading font ${name}:`, err)
-          reject(err)
-        }
-      )
-    })
-  }
-
-  // https://threejs.org/docs/#examples/en/loaders/OBJLoader
-  loadObj(url, name) {
-    return new Promise((resolve, reject) => {
-      // Load a resource
-      this.OBJLoader.load(
-        // resource URL
-        url,
-        // called when resource is loaded
-        (object) => {
-          this.assets[name].obj = object
-          resolve(object)
-        },
-        // onProgress callback
-        () =>
-        // xhr
-        {
-          // Optional: Implement progress feedback if needed
-        },
-        // called when loading has errors
-        (err) => {
-          console.error(`Error loading OBJ ${name}:`, err)
-          reject(err)
-        }
-      )
-    })
-  }
-}
-
-export default new LoaderManager()
 
