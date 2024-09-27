@@ -20,6 +20,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
+        api: 'modern', // Use the modern API
         additionalData: `@import "@/scss/imports/index";` // Adjust the path as needed
       }
     }

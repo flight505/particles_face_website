@@ -284,9 +284,6 @@ export default class MainScene {
     const mouseX = (event.clientX / window.innerWidth) * 2 - 1
     const mouseY = -(event.clientY / window.innerHeight) * 2 + 1
 
-    console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY)
-    console.log('Mesh:', this.mesh)
-
     const deltaX = mouseX - this.mouse.x
     const frameChangeSpeed = 60.0
 

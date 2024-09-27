@@ -10,11 +10,12 @@
 body {
     margin: 0;
     overflow: hidden;
-    background-color: #000000;
+    background-color: #111111;
     color: #fff;
     font-family: 'VT323', monospace;
 }
 
+// Container for the title, fixed at the top with a gradient background
 .title-container {
     display: block;
     position: fixed;
@@ -26,6 +27,7 @@ body {
     z-index: 10;
 }
 
+// Styling for the title text
 .title {
     font-size: 4rem;
     font-weight: 700;
@@ -38,6 +40,7 @@ body {
     animation: titlePulse 2s infinite alternate;
 }
 
+// Keyframes for the title's pulsing animation
 @keyframes titlePulse {
     from {
         text-shadow: 0 0 10px rgba(165, 199, 246, 0.5);
@@ -48,6 +51,7 @@ body {
     }
 }
 
+// Container for swipe loaders, covering the entire viewport
 .swipeloaders {
     position: relative;
     width: 100vw;
@@ -57,6 +61,7 @@ body {
     pointer-events: none;
 }
 
+// Loader with a black background, fixed and centered
 .homeloaderblack {
     cursor: none;
     position: fixed;
@@ -70,6 +75,7 @@ body {
     pointer-events: none;
 }
 
+// Text styling within the loader
 .text {
     position: relative;
     color: #ffffff;
@@ -80,12 +86,13 @@ body {
     font-weight: bold;
 }
 
+// Styling for target and cursor elements
 .target,
 .cursor {
     border-radius: 100%;
     width: 0px;
     height: 0px;
-    border: dashed 1px #ffffff;
+    background-color: rgba(9, 154, 183, 0.5); // Solid color with transparency
     -webkit-box-sizing: border-box;
     box-sizing: border-box;
     position: absolute;
@@ -97,13 +104,13 @@ body {
     z-index: 102;
 }
 
-/* Green Tri Small */
+// Specific styling for target elements
 .target {
     border-radius: 0;
     position: relative;
     width: 80px;
     height: 80px;
-    border: solid 1px #ffffff;
+    background: none; // Make the box invisible
     display: flex;
     justify-content: center;
     align-items: center;
@@ -115,6 +122,7 @@ body {
     z-index: 103;
 }
 
+// Scene container, fixed and covering the entire viewport
 .scene {
     position: fixed;
     top: 0;
@@ -125,6 +133,7 @@ body {
     background: transparent;
 }
 
+// Section styling for modal-like elements
 section {
     position: absolute;
     top: 50%;
@@ -143,11 +152,13 @@ section {
     z-index: 99;
 }
 
+// Active state for sections, making them visible
 section.active {
     display: block;
     opacity: 1;
 }
 
+// Styling for the contact form
 #contact-form {
     display: flex;
     flex-direction: column;

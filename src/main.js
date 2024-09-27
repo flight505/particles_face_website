@@ -109,7 +109,7 @@ function initializeApp() {
     }
 
     function handleNavigation(targetText) {
-        alert(`Navigating to: ${targetText}`)
+        console.log(`Navigating to: ${targetText}`)
 
         sections.forEach(section => {
             section.style.display = 'none'
@@ -122,7 +122,7 @@ function initializeApp() {
             targetSection.classList.add('active')
             targetSection.style.backgroundColor = 'rgba(255, 255, 255, 0.1)' // Add visible feedback
         } else {
-            alert(`Section "${targetText}" not found.`)
+            console.log(`Section "${targetText}" not found.`)
         }
     }
 
@@ -134,10 +134,10 @@ function initializeApp() {
             const targetText = textElement ? textElement.textContent.trim() : null
 
             if (targetText) {
-                alert(`Menu item clicked: ${targetText}`)
+                console.log(`Menu item clicked: ${targetText}`)
                 handleNavigation(targetText)
             } else {
-                alert('Clicked target has no .text element.')
+                console.log('Clicked target has no .text element.')
             }
         }
     })
@@ -149,10 +149,10 @@ function initializeApp() {
             const targetText = textElement ? textElement.textContent.trim() : null
 
             if (targetText) {
-                alert(`Menu item clicked directly: ${targetText}`)
+                console.log(`Menu item clicked directly: ${targetText}`)
                 handleNavigation(targetText)
             } else {
-                alert('Clicked menu item has no .text element.')
+                console.log('Clicked menu item has no .text element.')
             }
         })
     })
@@ -163,7 +163,7 @@ function initializeApp() {
             e.preventDefault()
             const email = document.getElementById('email').value
             const message = document.getElementById('message').value
-            alert(`Form submitted: Email - ${email}, Message - ${message}`)
+            console.log(`Form submitted: Email - ${email}, Message - ${message}`)
             contactForm.reset()
         })
     }
@@ -172,7 +172,7 @@ function initializeApp() {
 
     // Add a simple click event listener to the body
     document.body.addEventListener('click', (event) => {
-        alert(`Body clicked: ${event.target.tagName}`)
+        console.log(`Body clicked: ${event.target.tagName}`)
     })
 
     // Initialize the home section as active
