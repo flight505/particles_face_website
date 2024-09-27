@@ -195,3 +195,35 @@ section.active {
         margin: 10px 0;
     }
 }
+
+.frame-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.frame-overlay img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+// Ensure the swipeloaders and homeloaderblack are above the frame
+.swipeloaders,
+.homeloaderblack {
+    z-index: 3;
+}
+
+// Ensure sections are above the frame
+section {
+    z-index: 4;
+}
+
+// Ensure the title container is above the frame
+.title-container {
+    z-index: 5;
+}
