@@ -53,3 +53,46 @@ Help users complete product design and development tasks in a way that is easy f
 * Reflect on the entire process after completing each task.
 * Identify potential areas for improvement and update the readme.md file.
 * Regularly review code quality and documentation completeness.
+
+.
+├── dist
+├── node_modules
+├── package-lock.json
+├── package.json
+├── src
+│   ├── index.html
+│   ├── main.js
+│   ├── js
+│   │   ├── index.js
+│   │   ├── components
+│   │   │   ├── TouchTexture.js
+│   │   │   └── scene.js 
+│   │   ├── managers
+│   │   │   └── LoaderManager.js
+│   │   └── glsl
+│   │       ├── main.frag
+│   │       ├── main.vert
+│   │       ├── random.frag
+│   │       └── random.vert
+│   ├── public
+│   │   └── img
+│   │       ├── favicon.svg
+│   │       ├── frame.svg
+│   │       ├── left1_sprite_sheet.png
+│   │       └── right1_sprite_sheet.png
+│   └── scss
+│       ├── components
+│       │   ├── footer.scss
+│       │   ├── scene.scss
+│       │   └── title.scss
+│       ├── imports
+│       │   ├── _colors.scss
+│       │   ├── _easings.scss
+│       │   ├── _fonts.scss
+│       │   ├── _media-queries.scss
+│       │   └── index.scss
+│       ├── includes
+│       │   ├── reset.scss
+│       │   └── root.scss
+│       └── style.scss
+├── vite.config.js

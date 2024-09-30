@@ -1,5 +1,4 @@
 import os
-
 from PIL import Image
 
 
@@ -7,14 +6,16 @@ def create_sprite_sheet(
     input_folder: str, output_file: str, background_image_path: str = None
 ):
     # Constants
-    sprite_width, sprite_height = 300, 170
-    columns, rows = 5, 10
-    sheet_width, sheet_height = sprite_width * columns, sprite_height * rows
+    sprite_width, sprite_height = 300, 150
+    columns, rows = 6, 5  # For 30 frames (6x5 grid)
+
+    sheet_width = sprite_width * columns
+    sheet_height = sprite_height * rows
 
     # Create a new blank image with transparency (RGBA)
     sprite_sheet = Image.new("RGBA", (sheet_width, sheet_height), (0, 0, 0, 0))
 
-    # Load and resize the background image if provided
+    # Load the background image if provided
     background_image = None
     if background_image_path:
         background_image = Image.open(background_image_path).convert("RGBA")
@@ -27,14 +28,22 @@ def create_sprite_sheet(
     images = [f for f in os.listdir(input_folder) if f.endswith(".png")]
     images.sort()  # Optional: sort images by name
 
-    # Resize and paste each image into the sprite sheet
+    # Process each image and add it to the sprite sheet
     for index, image_file in enumerate(images):
         if index >= columns * rows:
+            print(
+                f"Warning: More than {columns * rows} images found. Extra images will be ignored."
+            )
             break  # Only process up to the required number of images
 
         img = Image.open(os.path.join(input_folder, image_file)).convert("RGBA")
-        img = img.resize((sprite_width, sprite_height), Image.Resampling.LANCZOS)
 
+        # Resize the image to target sprite size
+        img_resized = img.resize(
+            (sprite_width, sprite_height), Image.Resampling.LANCZOS
+        )
+
+        # Calculate position for this sprite
         x = (index % columns) * sprite_width
         y = (index // columns) * sprite_height
 
@@ -47,11 +56,11 @@ def create_sprite_sheet(
             print(f"Pasted background at: ({x}, {y})")
 
         # Paste the sprite image on top of the background
-        combined_image.alpha_composite(img)
+        combined_image.alpha_composite(img_resized)
         print(f"Pasted sprite at: ({x}, {y})")
 
         # Paste the combined image into the sprite sheet
-        sprite_sheet.alpha_composite(combined_image, (x, y))
+        sprite_sheet.paste(combined_image, (x, y))
 
     # Save the sprite sheet
     sprite_sheet.save(output_file)
@@ -59,10 +68,10 @@ def create_sprite_sheet(
 
 
 if __name__ == "__main__":
-    input_folder = "py_scripts/output_right1_frames"
-    output_file = "py_scripts/left1_sprite_sheet.png"
+    input_folder = "py_scripts/output_front_up_left_30_frames"
+    output_file = "py_scripts/front_up_left_sprite_sheet.png"
     background_image_path = (
-        # "py_scripts/300x170background.png"  # Ensure this is 300x170 pixels
+        None  # Uncomment and set path if you want to use a background image
     )
     create_sprite_sheet(
         input_folder,

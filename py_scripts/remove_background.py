@@ -154,8 +154,8 @@ def interpolate_frames(frame_paths, output_dir, target_frame_count):
 
 
 # Usage: Process video and output frames, and optionally create a movie
-input_video = "py_scripts/right1.mov"
-output_directory = "py_scripts/output_right1_frames"
+input_video = "py_scripts/front_up_right_30.mov"
+output_directory = "py_scripts/output_front_up_right_30_frames"
 frame_paths = process_video(
     input_video,
     output_directory,
@@ -165,7 +165,7 @@ frame_paths = process_video(
 
 # Interpolate frames to achieve the target frame count
 interpolated_dir = interpolate_frames(
-    frame_paths, output_directory, target_frame_count=50
+    frame_paths, output_directory, target_frame_count=30
 )
 
 # Debugging: Ensure interpolated_dir contains files
