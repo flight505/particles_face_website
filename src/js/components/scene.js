@@ -55,6 +55,7 @@ export default class MainScene {
   glitchEffect
   frustum
   projScreenMatrix
+  touchTexture
 
   constructor() {
     this.canvas = document.querySelector('.scene')
@@ -66,6 +67,7 @@ export default class MainScene {
     this.touch = new TouchTexture()
     this.frustum = new Frustum()
     this.projScreenMatrix = new Matrix4()
+    this.touchTexture = new TouchTexture()
     this.init().catch(error => {
       console.error('Initialization failed:', error)
     })
@@ -74,8 +76,7 @@ export default class MainScene {
   init = async () => {
     try {
       const assets = [
-        { name: 'sprite1', texture: './img/right1_sprite_sheet.png', flipY: true },
-        { name: 'sprite2', texture: './img/left1_sprite_sheet.png', flipY: true },
+        { name: 'sprite', texture: './img/360_face_sprite_sheet.png', flipY: true },
       ]
 
       await LoaderManager.load(assets)
@@ -227,13 +228,11 @@ export default class MainScene {
       uTime: { value: 0.0 },
       uTouch: { value: this.touch.texture },
       uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
-      uFrameIndex: { value: 0.0 }, // Explicitly use 0.0 to ensure it's a float
-      uSpriteCols: { value: 5 },
-      uSpriteRows: { value: 10 },
-      uTotalFrames: { value: 100 },
-      uSprite1: { value: LoaderManager.assets['sprite1'].texture },
-      uSprite2: { value: LoaderManager.assets['sprite2'].texture },
-      uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture },
+      uFrameIndex: { value: 0.0 },
+      uSpriteCols: { value: 6 }, // Updated to 6 columns
+      uSpriteRows: { value: 10 }, // Updated to 10 rows
+      uTotalFrames: { value: 60 }, // Updated to 60 total frames
+      uSpriteSheet: { value: LoaderManager.assets['sprite'].texture }, // Use the new sprite sheet
       uTexOffset: { value: new Vector2(0, 0) },
       uDisplacementScale: { value: 30.0 },
       uDisplacementBlend: { value: 0.0 },
@@ -260,16 +259,7 @@ export default class MainScene {
   }
 
   updateFrameOffset(frameIndex) {
-    const framesPerSheet = 50
-    const sheetIndex = Math.floor(frameIndex / framesPerSheet)
-    let actualFrame = frameIndex % framesPerSheet
-
-    if (sheetIndex < 1) {
-      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value
-      actualFrame = 49 - actualFrame
-    } else {
-      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value
-    }
+    const actualFrame = frameIndex % this.uniforms.uTotalFrames.value
 
     const frameCol = actualFrame % this.uniforms.uSpriteCols.value
     const frameRow = Math.floor(actualFrame / this.uniforms.uSpriteCols.value)
@@ -285,7 +275,7 @@ export default class MainScene {
     const mouseY = -(event.clientY / window.innerHeight) * 2 + 1
 
     const deltaX = mouseX - this.mouse.x
-    const frameChangeSpeed = 60.0
+    const frameChangeSpeed = 50.0 // Adjusted for smoother transition
 
     this.currentFrameIndex += deltaX * frameChangeSpeed
     this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, this.uniforms.uTotalFrames.value - 1))
@@ -534,5 +524,18 @@ export default class MainScene {
 
     this.uniforms.uScaleHeightPointSize.value = (this.dpr * this.height) / 2
     this.uniforms.uResolution.value.set(this.width, this.height)
+  }
+
+  updateTouchTexture() {
+    this.touchTexture.update();
+  }
+
+  render() {
+    // ... existing code ...
+
+    this.updateTouchTexture();
+    this.material.uniforms.uTouch.value = this.touchTexture.texture;
+
+    // ... existing code ...
   }
 }

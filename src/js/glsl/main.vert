@@ -125,13 +125,10 @@ void main() {
   vTexCoords = vec2(normalizedX, normalizedY);
 
   // Calculate frame index and UV offset
-  float framesPerSheet = 50.0;
   float frameIndex = floor(uFrameIndex);
-  float sheetIndex = floor(frameIndex / framesPerSheet);
-  float frameInSheet = mod(frameIndex, framesPerSheet);
-
-  float frameCol = mod(frameInSheet, uSpriteCols);
-  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
+  
+  float frameCol = mod(frameIndex, uSpriteCols);
+  float frameRow = uSpriteRows - 1.0 - floor(frameIndex / uSpriteCols);
 
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
@@ -162,7 +159,7 @@ void main() {
   gl_Position = projectionMatrix * mvPosition;
 
   // Increase point size
-  gl_PointSize = (uPointSize * 2.0 + randoms * 0.2) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
+  gl_PointSize = (uPointSize * 3.0 + randoms * 0.2) * (uScaleHeightPointSize / -mvPosition.z) * visibility;
 
   // Set the alpha to 0 for invisible particles
   vAlpha = visibility;

@@ -44,6 +44,7 @@
     "vite": "^4.5.5"
   },
   "dependencies": {
+    "@phosphor-icons/webcomponents": "^2.1.5",
     "@vitejs/plugin-react": "^4.3.1",
     "gsap": "^3.12.5",
     "lil-gui": "^0.17.0",

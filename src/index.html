@@ -6,14 +6,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <link rel="icon" type="image/x-icon" href="./img/favicon.svg" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-  <title>3D Face Animation</title>
+  <title>Vang's Vital Insights</title>
+  <link rel="stylesheet" href="path/to/your/style.css">
+  <script type="module" src="https://unpkg.com/@phosphor-icons/webcomponents@2.1"></script>
 </head>
 
 <body>
   <div class="title-container">
-    <h1 class="title">Vang's Vital Insights</h1>
+    <h1 class="title">VANG'S<br>VITAL INSIGHTS</h1>
+    <p class="subtitle">OPTIMIZE HEALTH TECH WITH PREDICTIVE ANALYTICS</p>
   </div>
+
+  <div class="white-shape"></div>
+
+  <div class="social-icons">
+    <a href="#" aria-label="GitHub"><i class="ph-github-logo"></i></a>
+    <a href="#" aria-label="LinkedIn"><i class="ph-linkedin-logo"></i></a>
+    <a href="#" aria-label="YouTube"><i class="ph-youtube-logo"></i></a>
+    <a href="#" aria-label="Twitter"><i class="ph-twitter-logo"></i></a>
+  </div>
+
   <div class="swipeloaders">
     <div class="homeloaderblack">
       <div class="target">
@@ -32,7 +44,7 @@
     </div>
   </div>
   <div class="frame-overlay">
-    <img src="./img/frame.svg" alt="Frame" />
+    <img src="./img/frame_white.svg" alt="Frame" />
   </div>
   <canvas class="scene"></canvas>
 
@@ -71,6 +83,22 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/Draggable.min.js"></script>
   <script type="module" src="./main.js"></script>
+
+  <footer class="footer">
+    <a href="https://github.com/flight505" target="_blank" rel="noopener noreferrer" class="footer__link">
+      <ph-github-logo class="footer__icon"></ph-github-logo>
+    </a>
+    <a href="https://linkedin.com/in/your-linkedin-profile" target="_blank" rel="noopener noreferrer"
+      class="footer__link">
+      <ph-linkedin-logo class="footer__icon"></ph-linkedin-logo>
+    </a>
+    <a href="https://youtube.com/your-youtube-channel" target="_blank" rel="noopener noreferrer" class="footer__link">
+      <ph-youtube-logo class="footer__icon"></ph-youtube-logo>
+    </a>
+    <a href="https://twitter.com/your-twitter-handle" target="_blank" rel="noopener noreferrer" class="footer__link">
+      <ph-x-logo class="footer__icon"></ph-x-logo>
+    </a>
+  </footer>
 </body>
 
 </html>

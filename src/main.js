@@ -40,71 +40,67 @@ function initializeApp() {
     }
 
     function animateCursor() {
-        animationFrameId = null
+        animationFrameId = null;
 
-        let closestTarget = null
-        let closestDistance = Infinity
+        let closestTarget = null;
+        let closestDistance = Infinity;
 
         homeloaderblack.querySelectorAll('.target').forEach(target => {
-            const rect = target.getBoundingClientRect()
+            const rect = target.getBoundingClientRect();
             const targetCenter = {
                 x: rect.left + rect.width / 2,
                 y: rect.top + rect.height / 2
-            }
+            };
 
             const distance = Math.hypot(
                 targetCenter.x - cursorPosition.x,
                 targetCenter.y - cursorPosition.y
-            )
+            );
 
             if (distance < closestDistance) {
-                closestTarget = target
-                closestDistance = distance
+                closestTarget = target;
+                closestDistance = distance;
             }
-        })
+        });
 
         if (closestTarget && closestDistance < closestTarget.getBoundingClientRect().width) {
-            const rect = closestTarget.getBoundingClientRect()
-            const targetCenter = {
-                x: rect.left + rect.width / 2,
-                y: rect.top + rect.height / 2
-            }
-
-            const angle = Math.atan2(targetCenter.y - cursorPosition.y, targetCenter.x - cursorPosition.x)
-            const distanceRatio = closestDistance / (rect.width / 2)
-
-            // Damping factor to reduce movement (adjust as needed)
-            const dampingFactor = 0.8
+            const textElement = closestTarget.querySelector('.text');
+            const textRect = textElement.getBoundingClientRect();
 
             gsap.to(cursor, {
-                left: targetCenter.x - Math.cos(angle) * closestDistance * 0.5,
-                top: targetCenter.y - Math.sin(angle) * closestDistance * 0.5,
-                height: rect.height,
-                width: rect.width,
-                duration: 0.2
-            })
+                left: textRect.left,
+                top: textRect.bottom + 2, // Position the bar 2px below the text
+                width: textRect.width,
+                height: 2, // Height of the bar
+                borderRadius: 0, // Make it a rectangle
+                backgroundColor: 'rgba(0, 0, 3, 0.5)', // Keep the same color
+                duration: 0.2,
+                xPercent: 0, // Ensure the bar is not offset
+                yPercent: 0
+            });
 
-            gsap.to(closestTarget.querySelector(".text"), {
-                x: -Math.cos(angle) * closestDistance * 0.5 * distanceRatio * dampingFactor,
-                y: -Math.sin(angle) * closestDistance * 0.5 * distanceRatio * dampingFactor,
+            gsap.to(textElement, {
+                y: -2, // Slight upward movement of text
                 duration: 0.2
-            })
+            });
         } else {
             gsap.to(cursor, {
                 left: cursorPosition.x,
                 top: cursorPosition.y,
-                height: 12,
                 width: 12,
-                duration: 0.2
-            })
+                height: 12,
+                borderRadius: '50%',
+                duration: 0.2,
+                xPercent: -50, // Center the circular cursor
+                yPercent: -50
+            });
 
-            homeloaderblack.querySelectorAll('.target').forEach(target => {
-                gsap.to(target.querySelector(".text"), {
-                    x: 0,
+            homeloaderblack.querySelectorAll('.target .text').forEach(textElement => {
+                gsap.to(textElement, {
                     y: 0,
                     duration: 0.2
-                })
-            })
+                });
+            });
         }
     }
 

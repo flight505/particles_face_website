@@ -1,11 +1,8 @@
 precision highp float;
 
 // Sprite Sheet Samplers
-uniform sampler2D uSprite1;
-uniform sampler2D uSprite2;
-
-// Frame Control Uniforms
-uniform highp float uFrameIndex;
+uniform sampler2D uSpriteSheet;
+uniform float uFrameIndex;
 uniform float uSpriteCols;
 uniform float uSpriteRows;
 
@@ -27,19 +24,12 @@ float circle(vec2 uv, float border) {
 }
 
 void main() {
-  // Total frames per sprite sheet
-  float framesPerSheet = 50.0;
-
   // Use uFrameIndex to determine which frame to show
   float frameIndex = floor(uFrameIndex);
   
-  // Determine current sprite sheet
-  float sheetIndex = floor(frameIndex / framesPerSheet);
-  float frameInSheet = mod(frameIndex, framesPerSheet);
-
   // Calculate Column and Row for Current Frame
-  float frameCol = mod(frameInSheet, uSpriteCols);
-  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
+  float frameCol = mod(frameIndex, uSpriteCols);
+  float frameRow = uSpriteRows - 1.0 - floor(frameIndex / uSpriteCols);
   
   // Define frame dimensions in UV space
   float frameWidth = 1.0 / uSpriteCols;
@@ -51,8 +41,8 @@ void main() {
   // Final UV coordinates for current frame
   vec2 finalUV = frameUVOffset + vTexCoords * vec2(frameWidth, frameHeight);
 
-  // Sample texture from the correct sprite sheet
-  vec4 sampledColor = sheetIndex < 1.0 ? texture2D(uSprite1, finalUV) : texture2D(uSprite2, finalUV);
+  // Sample texture from the sprite sheet
+  vec4 sampledColor = texture2D(uSpriteSheet, finalUV);
 
   // Adjust color to create a stronger blue-green tint
   vec3 tintedColor = mix(sampledColor.rgb, vec3(0.0, 0.8, 1.0), 0.2);
@@ -79,7 +69,7 @@ void main() {
   float brightness = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
 
   // Discard pixels if too transparent or too dark
-  if (gl_FragColor.a < 0.05 || brightness < 0.55) {
+  if (gl_FragColor.a < 0.05 || brightness < 0.65) {
     discard;
   }
 }

@@ -2,7 +2,6 @@
 ===== Filename: src/js/components/scene.js =====
 
 // Importing necessary modules and libraries
-
 import {
   WebGLRenderer,
   Scene,
@@ -17,14 +16,13 @@ import {
   PointLight,
   Frustum,
   Matrix4,
+  RepeatWrapping, // Imported RepeatWrapping
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import Stats from 'stats-js'
 import LoaderManager from '@/js/managers/LoaderManager'
 import vertexShader from '@/js/glsl/main.vert'
 import fragmentShader from '@/js/glsl/main.frag'
-import randomVertexShader from '@/js/glsl/random.vert'
-import randomFragmentShader from '@/js/glsl/random.frag'
 import { randFloat } from 'three/src/math/MathUtils'
 import gsap from 'gsap'
 import TouchTexture from './TouchTexture'
@@ -37,7 +35,6 @@ import {
   EffectPass,
   BlendFunction,
   SMAAEffect,
-  SMAAPreset,
   GlitchEffect,
   VignetteEffect,
   NoiseEffect,
@@ -54,10 +51,14 @@ export default class MainScene {
   width
   height
   mouse = new Vector2(0, 0)
-  currentFrameIndex = 49
+  currentFrameIndex = 0
   glitchEffect
   frustum
   projScreenMatrix
+  directionSpriteMap = {}
+  currentDirection = 'front'
+  spriteSheets = {}
+  framesPerDirection = 30
 
   constructor() {
     this.canvas = document.querySelector('.scene')
@@ -77,19 +78,29 @@ export default class MainScene {
   init = async () => {
     try {
       const assets = [
-        { name: 'sprite1', texture: './img/right1_sprite_sheet.png', flipY: true },
-        { name: 'sprite2', texture: './img/left1_sprite_sheet.png', flipY: true },
+        { name: 'front_up', texture: './img/front_up_sprite_sheet.png', flipY: true },
+        { name: 'front_up_left', texture: './img/front_up_left_sprite_sheet.png', flipY: true },
+        { name: 'front_side_left', texture: './img/front_side_left_sprite_sheet.png', flipY: true },
+        { name: 'front_down_left', texture: './img/front_down_left_sprite_sheet.png', flipY: true },
+        { name: 'front_down', texture: './img/front_down_sprite_sheet.png', flipY: true },
+        { name: 'front_down_right', texture: './img/front_down_right_sprite_sheet.png', flipY: true },
+        { name: 'front_side_right', texture: './img/front_side_right_sprite_sheet.png', flipY: true },
+        { name: 'front_up_right', texture: './img/front_up_right_sprite_sheet.png', flipY: true },
       ]
 
       await LoaderManager.load(assets)
       console.log('Loaded Textures:', LoaderManager.assets)
 
-      this.setStats()
-      this.setScene()
-      this.setRenderer()
-      this.setCamera()
-      this.setControls()
+      this.initializeUniforms(); // Move this line up
+      this.setupDirectionSpriteMap();
+
+      this.setScene();
+      this.setRenderer();
+      this.setCamera();
+
       this.setParticlesGrid()
+      this.setStats()
+      this.setControls()
       this.setRaycaster()
       this.setPostProcessing()
       this.setLights()
@@ -103,6 +114,58 @@ export default class MainScene {
     } catch (error) {
       console.error('Error during initialization:', error)
       throw error
+    }
+  }
+
+  setupDirectionSpriteMap() {
+    // Helper function to safely get the texture
+    const getTexture = (name) => {
+      const asset = LoaderManager.assets[name];
+      if (!asset) {
+        console.warn(`Asset ${name} not found`);
+        return null;
+      }
+      return asset.texture || asset; // Return texture if it's nested, or the asset itself if it's directly a texture
+    };
+
+    this.directionSpriteMap = {
+      'front_up': getTexture('front_up'),
+      'front_up_left': getTexture('front_up_left'),
+      'front_side_left': getTexture('front_side_left'),
+      'front_down_left': getTexture('front_down_left'),
+      'front_down': getTexture('front_down'),
+      'front_down_right': getTexture('front_down_right'),
+      'front_side_right': getTexture('front_side_right'),
+      'front_up_right': getTexture('front_up_right'),
+      'front': getTexture('front_up'), // Assuming 'front_up' serves as 'front'
+    };
+
+    // Log the directionSpriteMap to verify its contents
+    console.log('Direction Sprite Map:', this.directionSpriteMap);
+
+    // Ensure all sprite sheets have the same properties
+    for (let key in this.directionSpriteMap) {
+      if (this.directionSpriteMap[key]) {
+        this.directionSpriteMap[key].wrapS = RepeatWrapping;
+        this.directionSpriteMap[key].wrapT = RepeatWrapping;
+        this.directionSpriteMap[key].repeat.set(1 / 6, 1 / 5); // 6 columns, 5 rows
+      } else {
+        console.warn(`Sprite sheet for direction "${key}" is missing.`);
+      }
+    }
+
+    // Set initial sprite sheet
+    const initialDirection = 'front';
+    const initialSpriteSheet = this.directionSpriteMap[initialDirection] || Object.values(this.directionSpriteMap).find(texture => texture);
+
+    if (initialSpriteSheet) {
+      if (this.uniforms && this.uniforms.uSpriteSheet) {
+        this.uniforms.uSpriteSheet.value = initialSpriteSheet;
+      } else {
+        console.warn('uniforms or uSpriteSheet not initialized yet');
+      }
+    } else {
+      console.error('No valid sprite sheet found for initialization');
     }
   }
 
@@ -161,14 +224,13 @@ export default class MainScene {
       const { particles, initPositions, randoms, colorRandoms } = this.generateParticleAttributes()
       this.setGeometryAttributes(geometry, particles, initPositions, randoms, colorRandoms)
       this.initializeUniforms()
-      this.updateFrameOffset(this.currentFrameIndex)
+      this.updateFrameOffset(this.currentDirection, this.currentFrameIndex)
       this.createParticleMesh(geometry)
 
       // Initialize visibility attribute
       const visibilityArray = new Float32Array(particles.length / 3)
       visibilityArray.fill(1.0)
       geometry.setAttribute('visibility', new BufferAttribute(visibilityArray, 1))
-
     } catch (error) {
       console.error('Error setting up particle grid:', error)
       throw error
@@ -231,12 +293,9 @@ export default class MainScene {
       uTouch: { value: this.touch.texture },
       uScaleHeightPointSize: { value: (this.dpr * this.height) / 2.0 },
       uFrameIndex: { value: 0.0 }, // Explicitly use 0.0 to ensure it's a float
-      uSpriteCols: { value: 5 },
-      uSpriteRows: { value: 10 },
-      uTotalFrames: { value: 100 },
-      uSprite1: { value: LoaderManager.assets['sprite1'].texture },
-      uSprite2: { value: LoaderManager.assets['sprite2'].texture },
-      uSpriteSheet: { value: LoaderManager.assets['sprite1'].texture },
+      uSpriteCols: { value: 6 }, // 6 columns in sprite sheet
+      uSpriteRows: { value: 5 }, // 5 rows in sprite sheet
+      uSpriteSheet: { value: this.directionSpriteMap['front'] }, // Directly assign texture
       uTexOffset: { value: new Vector2(0, 0) },
       uDisplacementScale: { value: 30.0 },
       uDisplacementBlend: { value: 0.0 },
@@ -245,6 +304,8 @@ export default class MainScene {
       uDistortionAmplitude: { value: 1.0 },
       uRandomSeed: { value: Math.random() * 100 },
       uResolution: { value: new Vector2(this.width, this.height) },
+      uTotalFrames: { value: this.framesPerDirection }, // Add this line
+
     }
   }
 
@@ -259,21 +320,25 @@ export default class MainScene {
       blending: AdditiveBlending,
     })
     this.mesh = new Points(geometry, customMaterial)
-    this.scene.add(this.mesh)
+    if (this.scene) {
+      this.scene.add(this.mesh)
+    } else {
+      console.error('Scene is not initialized. Cannot add mesh.')
+    }
   }
 
-  updateFrameOffset(frameIndex) {
-    const framesPerSheet = 50
-    const sheetIndex = Math.floor(frameIndex / framesPerSheet)
-    let actualFrame = frameIndex % framesPerSheet
+  updateFrameOffset(direction, frameIndex) {
+    const actualFrame = Math.floor(frameIndex) % this.framesPerDirection
 
-    if (sheetIndex < 1) {
-      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite1.value
-      actualFrame = 49 - actualFrame
-    } else {
-      this.uniforms.uSpriteSheet.value = this.uniforms.uSprite2.value
+    // Set the sprite sheet based on direction
+    const selectedSpriteSheet = this.directionSpriteMap[direction] || this.directionSpriteMap['front']
+    if (!selectedSpriteSheet) {
+      console.warn(`Sprite sheet for direction "${direction}" is missing. Falling back to 'front'.`)
+      return
     }
+    this.uniforms.uSpriteSheet.value = selectedSpriteSheet
 
+    // Calculate Column and Row for Current Frame
     const frameCol = actualFrame % this.uniforms.uSpriteCols.value
     const frameRow = Math.floor(actualFrame / this.uniforms.uSpriteCols.value)
 
@@ -281,19 +346,18 @@ export default class MainScene {
     const vOffset = frameRow / this.uniforms.uSpriteRows.value
 
     this.uniforms.uTexOffset.value.set(uOffset, vOffset)
-
-    console.log(`Frame: ${frameIndex}, Sheet: ${sheetIndex}, Actual Frame: ${actualFrame}, Offset: (${uOffset}, ${vOffset})`)
   }
 
   handleMouseMove = (event) => {
     const mouseX = (event.clientX / window.innerWidth) * 2 - 1
     const mouseY = -(event.clientY / window.innerHeight) * 2 + 1
 
-    console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY)
-    console.log('Mesh:', this.mesh)
+    // Determine direction based on mouse position
+    const direction = this.getDirectionFromMouse(mouseX, mouseY)
 
+    // Update frame index based on horizontal movement
     const deltaX = mouseX - this.mouse.x
-    const frameChangeSpeed = 60.0
+    const frameChangeSpeed = 30.0 // Adjusted for smoother transitions
 
     this.currentFrameIndex += deltaX * frameChangeSpeed
     this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, this.uniforms.uTotalFrames.value - 1))
@@ -301,21 +365,24 @@ export default class MainScene {
     this.mouse.x = mouseX
     this.mouse.y = mouseY
 
+    // Update rotation
     const rotateX = gsap.quickTo(this.mesh.rotation, 'x', { duration: 0.5, ease: 'circ.out' })
     const rotateY = gsap.quickTo(this.mesh.rotation, 'y', { duration: 0.5, ease: 'circ.out' })
 
-    rotateX(-this.mouse.y * Math.PI / 64) // Negate this.mouse.y to reverse the tilt direction
+    rotateX(-this.mouse.y * Math.PI / 64) // Negate to reverse tilt direction
     rotateY(this.mouse.x * Math.PI / 64)
 
+    // Animate frame index
     gsap.to(this.uniforms.uFrameIndex, {
       value: this.currentFrameIndex,
       duration: 0.3,
       ease: 'power2.out',
       onUpdate: () => {
-        this.updateFrameOffset(this.uniforms.uFrameIndex.value)
+        this.updateFrameOffset(direction, this.uniforms.uFrameIndex.value)
       },
     })
 
+    // Existing raycaster logic
     this.ray.setFromCamera(this.mouse, this.camera)
     this.intersects = this.ray.intersectObjects([this.mesh])
 
@@ -329,6 +396,23 @@ export default class MainScene {
     if (this.light) {
       this.light.position.x = -this.mouse.x * 10
       this.light.position.y = this.mouse.y * 10
+    }
+  }
+
+  getDirectionFromMouse(x, y) {
+    const threshold = 0.3
+    if (y > threshold) { // Upward
+      if (x < -threshold) return 'front_up_left'
+      if (x > threshold) return 'front_up_right'
+      return 'front_up'
+    } else if (y < -threshold) { // Downward
+      if (x < -threshold) return 'front_down_left'
+      if (x > threshold) return 'front_down_right'
+      return 'front_down'
+    } else { // Neutral vertically
+      if (x < -threshold) return 'front_side_left'
+      if (x > threshold) return 'front_side_right'
+      return 'front'
     }
   }
 
@@ -515,7 +599,6 @@ export default class MainScene {
       console.warn('uTime uniform is not defined')
     }
 
-    this.renderer.render(this.scene, this.camera)
     this.composer.render()
 
     this.touch.update()
@@ -550,12 +633,11 @@ export default class MainScene {
 
 precision highp float;
 
-// Sprite Sheet Samplers
-uniform sampler2D uSprite1;
-uniform sampler2D uSprite2;
+// Sprite Sheet Sampler
+uniform sampler2D uSpriteSheet;
 
 // Frame Control Uniforms
-uniform highp float uFrameIndex;
+uniform float uFrameIndex;
 uniform float uSpriteCols;
 uniform float uSpriteRows;
 
@@ -578,32 +660,25 @@ float circle(vec2 uv, float border) {
 
 void main() {
   // Total frames per sprite sheet
-  float framesPerSheet = 50.0;
+  float framesPerSheet = float(uSpriteCols * uSpriteRows);
 
   // Use uFrameIndex to determine which frame to show
   float frameIndex = floor(uFrameIndex);
   
-  // Determine current sprite sheet
-  float sheetIndex = floor(frameIndex / framesPerSheet);
-  float frameInSheet = mod(frameIndex, framesPerSheet);
-
   // Calculate Column and Row for Current Frame
-  float frameCol = mod(frameInSheet, uSpriteCols);
-  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
+  float frameCol = mod(frameIndex, uSpriteCols);
+  float frameRow = floor(frameIndex / uSpriteCols);
   
-  // Define frame dimensions in UV space
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
 
-  // Calculate UV offset for current frame
   vec2 frameUVOffset = vec2(frameCol * frameWidth, frameRow * frameHeight);
-
-  // Final UV coordinates for current frame
+  
   vec2 finalUV = frameUVOffset + vTexCoords * vec2(frameWidth, frameHeight);
-
-  // Sample texture from the correct sprite sheet
-  vec4 sampledColor = sheetIndex < 1.0 ? texture2D(uSprite1, finalUV) : texture2D(uSprite2, finalUV);
-
+  
+  // Sample the sprite sheet
+  vec4 sampledColor = texture2D(uSpriteSheet, finalUV);
+  
   // Adjust color to create a stronger blue-green tint
   vec3 tintedColor = mix(sampledColor.rgb, vec3(0.0, 0.8, 1.0), 0.2);
   
@@ -637,7 +712,6 @@ void main() {
 
 ===== Filename: src/js/glsl/main.vert =====
 
-// Vertex Shader with Z-Axis Displacement and Row Distortion
 precision highp float;
 
 uniform float uPointSize;
@@ -655,24 +729,26 @@ attribute float visibility;
 varying vec2 vTexCoords;
 varying float vAlpha;
 
-uniform sampler2D uSpriteSheet;    // Active Sprite Sheet (sprite1 or sprite2)
+uniform sampler2D uSpriteSheet;    // Active Sprite Sheet
 uniform vec2 uTexOffset;           // UV Offset to Select Current Frame
 uniform float uDisplacementScale;  // Intensity of Z-Axis Displacement
 uniform float uSpriteCols;         // Number of columns in the sprite sheet
 uniform float uSpriteRows;         // Number of rows in the sprite sheet
 uniform float uFrameIndex;         // Current frame index
-uniform float uDisplacementBlend;  // New uniform to blend displacement effect
+uniform float uDisplacementBlend;  // Blend displacement effect
 uniform float uDispersion;
 uniform float uDistortionFrequency;
 uniform float uDistortionAmplitude;
 uniform float uRandomSeed;
+uniform float uTotalFrames;
 
 // Function to generate a pseudo-random value
 float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
 }
 
-// Add this function at the top of your shader
+// Noise functions (snoise, etc.) remain unchanged
+
 vec3 mod289(vec3 x) {
   return x - floor(x * (1.0 / 289.0)) * 289.0;
 }
@@ -764,13 +840,12 @@ void main() {
   vTexCoords = vec2(normalizedX, normalizedY);
 
   // Calculate frame index and UV offset
-  float framesPerSheet = 50.0;
+  float framesPerSheet = float(uTotalFrames);
   float frameIndex = floor(uFrameIndex);
-  float sheetIndex = floor(frameIndex / framesPerSheet);
-  float frameInSheet = mod(frameIndex, framesPerSheet);
-
-  float frameCol = mod(frameInSheet, uSpriteCols);
-  float frameRow = uSpriteRows - 1.0 - floor(frameInSheet / uSpriteCols);
+  
+  // Calculate Column and Row for Current Frame
+  float frameCol = mod(frameIndex, uSpriteCols);
+  float frameRow = floor(frameIndex / uSpriteCols);
 
   float frameWidth = 1.0 / uSpriteCols;
   float frameHeight = 1.0 / uSpriteRows;
@@ -810,11 +885,11 @@ void main() {
 
 ===== Filename: src/scss/style.scss =====
 
-@import 'imports/index';
+// ===== Filename: src/scss/style.scss =====
 
+@import 'imports/index';
 @import 'includes/reset';
 @import 'includes/root';
-
 @import 'components/scene';
 @import 'components/title';
 @import 'components/footer';
@@ -822,13 +897,14 @@ void main() {
 body {
     margin: 0;
     overflow: hidden;
-    background-color: #000000;
+    background-color: #111111;
     color: #fff;
     font-family: 'VT323', monospace;
 }
 
+// Container for the title, fixed at the top with a gradient background
 .title-container {
-    display: true; // Hide the yellow title
+    display: block;
     position: fixed;
     top: 0;
     left: 0;
@@ -838,6 +914,7 @@ body {
     z-index: 10;
 }
 
+// Styling for the title text
 .title {
     font-size: 4rem;
     font-weight: 700;
@@ -850,6 +927,7 @@ body {
     animation: titlePulse 2s infinite alternate;
 }
 
+// Keyframes for the title's pulsing animation
 @keyframes titlePulse {
     from {
         text-shadow: 0 0 10px rgba(165, 199, 246, 0.5);
@@ -860,28 +938,31 @@ body {
     }
 }
 
+// Container for swipe loaders, covering the entire viewport
 .swipeloaders {
     position: relative;
     width: 100vw;
     height: 100vh;
-    z-index: 1;
+    z-index: 100;
     overflow: hidden;
-    pointer-events: none; // Allow events to pass through to underlying elements
+    pointer-events: none;
 }
 
+// Loader with a black background, fixed and centered
 .homeloaderblack {
     cursor: none;
     position: fixed;
-    z-index: 5002;
-    justify-content: space-around; // Distribute space evenly
-    align-items: center; // Center items vertically
+    z-index: 101;
+    justify-content: space-around;
+    align-items: center;
     width: 100vw;
     height: 100vh;
-    background-color: #000000;
+    background-color: transparent;
     display: flex;
-    pointer-events: none; // Allow events to pass through to underlying elements
+    pointer-events: none;
 }
 
+// Text styling within the loader
 .text {
     position: relative;
     color: #ffffff;
@@ -892,12 +973,13 @@ body {
     font-weight: bold;
 }
 
+// Styling for target and cursor elements
 .target,
 .cursor {
     border-radius: 100%;
     width: 0px;
     height: 0px;
-    border: dashed 1px #ffffff;
+    background-color: rgba(9, 154, 183, 0.5); // Solid color with transparency
     -webkit-box-sizing: border-box;
     box-sizing: border-box;
     position: absolute;
@@ -905,27 +987,29 @@ body {
     left: 10%;
     -webkit-transform: translate(-50%, -50%) rotate(0deg);
     transform: translate(-50%, -50%) rotate(0deg);
-    pointer-events: auto; // Ensure the element can receive mouse events
+    pointer-events: auto;
+    z-index: 102;
 }
 
-/* Green Tri Small */
+// Specific styling for target elements
 .target {
     border-radius: 0;
     position: relative;
     width: 80px;
     height: 80px;
-    border: solid 1px transparent;
+    background: none; // Make the box invisible
     display: flex;
     justify-content: center;
     align-items: center;
     text-align: center;
     margin: 0 50px;
-    pointer-events: auto; // Ensure the element can receive mouse events
-
-    // Add these properties to position the menu items
+    pointer-events: auto;
+    cursor: pointer;
     top: 40%;
+    z-index: 103;
 }
 
+// Scene container, fixed and covering the entire viewport
 .scene {
     position: fixed;
     top: 0;
@@ -936,20 +1020,32 @@ body {
     background: transparent;
 }
 
+// Section styling for modal-like elements
 section {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, 0.7);
-    color: white;
+    color: #ffffff;
     padding: 20px;
     border-radius: 10px;
     max-width: 80%;
     max-height: 80%;
     overflow-y: auto;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    display: none;
+    z-index: 99;
 }
 
+// Active state for sections, making them visible
+section.active {
+    display: block;
+    opacity: 1;
+}
+
+// Styling for the contact form
 #contact-form {
     display: flex;
     flex-direction: column;
@@ -965,7 +1061,7 @@ section {
     button {
         padding: 10px;
         background-color: #4CAF50;
-        color: white;
+        color: #ffffff;
         border: none;
         border-radius: 5px;
         cursor: pointer;
@@ -979,12 +1075,44 @@ section {
 // Add media query for smaller screens
 @media (max-width: 768px) {
     .homeloaderblack {
-        flex-direction: column; // Stack vertically on small screens
+        flex-direction: column;
     }
 
     .target {
-        margin: 10px 0; // Add some vertical spacing between items
+        margin: 10px 0;
     }
+}
+
+.frame-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.frame-overlay img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+// Ensure the swipeloaders and homeloaderblack are above the frame
+.swipeloaders,
+.homeloaderblack {
+    z-index: 3;
+}
+
+// Ensure sections are above the frame
+section {
+    z-index: 4;
+}
+
+// Ensure the title container is above the frame
+.title-container {
+    z-index: 5;
 }
 
 
@@ -998,7 +1126,6 @@ section {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <link rel="icon" type="image/x-icon" href="./img/favicon.svg" />
-  <link rel="stylesheet" href="./scss/style.scss" />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
   <title>3D Face Animation</title>
 </head>
@@ -1024,14 +1151,17 @@ section {
       <div class="cursor" id="cursor"></div>
     </div>
   </div>
+  <div class="frame-overlay">
+    <img src="./img/frame.svg" alt="Frame" />
+  </div>
   <canvas class="scene"></canvas>
 
   <!-- Sections for each page -->
-  <section id="home" style="display: block;">
+  <section id="home" class="active">
     <h2>Home</h2>
     <p>Welcome to Vang's Vital Insights.</p>
   </section>
-  <section id="insights" style="display: none;">
+  <section id="insights">
     <h2>Vital Insights</h2>
     <p>Discover the power of data-driven decision making:</p>
     <ul>
@@ -1041,12 +1171,12 @@ section {
       <li>Stay ahead of market trends with real-time insights</li>
     </ul>
   </section>
-  <section id="about" style="display: none;">
+  <section id="about">
     <h2>About</h2>
     <p>Vang's Vital Insights is a platform dedicated to sharing valuable information and perspectives on various topics.
     </p>
   </section>
-  <section id="contact" style="display: none;">
+  <section id="contact">
     <h2>Contact</h2>
     <form id="contact-form">
       <label for="email">Email:</label>
@@ -1060,7 +1190,7 @@ section {
   <!-- Load GSAP and Draggable before main.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/Draggable.min.js"></script>
-  <script type="module" defer src="./main.js"></script>
+  <script type="module" src="./main.js"></script>
 </body>
 
 </html>
@@ -1068,19 +1198,34 @@ section {
 
 ===== Filename: src/main.js =====
 
+// ===== Filename: src/main.js =====
+
+import './scss/style.scss'  // Import the main SCSS file
 import MainScene from './js/components/scene.js'
 import { gsap } from 'gsap'
 import { Draggable } from 'gsap/Draggable'
 
 gsap.registerPlugin(Draggable)
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM Content Loaded')
+window.addEventListener('load', () => {
+    console.log('Window loaded')
+    initializeApp()
+})
+
+function initializeApp() {
+    console.log('Initializing app')
     const mainScene = new MainScene()
     console.log('MainScene initialized:', mainScene)
 
     const cursor = document.querySelector(".cursor")
-    const targets = document.querySelectorAll(".target")
+    const homeloaderblack = document.querySelector(".homeloaderblack")
+    const sections = document.querySelectorAll('section')
+    const menuItems = document.querySelectorAll('.target')
+
+    console.log('Cursor element:', cursor)
+    console.log('Homeloaderblack element:', homeloaderblack)
+    console.log('Sections:', sections)
+    console.log('Menu items:', menuItems)
 
     let cursorPosition = { x: 0, y: 0 }
     let animationFrameId = null
@@ -1100,7 +1245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let closestTarget = null
         let closestDistance = Infinity
 
-        targets.forEach(target => {
+        homeloaderblack.querySelectorAll('.target').forEach(target => {
             const rect = target.getBoundingClientRect()
             const targetCenter = {
                 x: rect.left + rect.width / 2,
@@ -1153,7 +1298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 duration: 0.2
             })
 
-            targets.forEach(target => {
+            homeloaderblack.querySelectorAll('.target').forEach(target => {
                 gsap.to(target.querySelector(".text"), {
                     x: 0,
                     y: 0,
@@ -1164,21 +1309,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleNavigation(targetText) {
-        const sections = document.querySelectorAll('section')
+        console.log(`Navigating to: ${targetText}`)
+
         sections.forEach(section => {
             section.style.display = 'none'
+            section.classList.remove('active')
         })
 
         const targetSection = document.getElementById(targetText.toLowerCase())
         if (targetSection) {
             targetSection.style.display = 'block'
+            targetSection.classList.add('active')
+            targetSection.style.backgroundColor = 'rgba(255, 255, 255, 0.1)' // Add visible feedback
+        } else {
+            console.log(`Section "${targetText}" not found.`)
         }
     }
 
-    targets.forEach(target => {
-        target.addEventListener('click', () => {
-            const targetText = target.querySelector('.text').textContent
-            handleNavigation(targetText)
+    // Use event delegation for better performance
+    homeloaderblack.addEventListener('click', (event) => {
+        const target = event.target.closest('.target')
+        if (target) {
+            const textElement = target.querySelector('.text')
+            const targetText = textElement ? textElement.textContent.trim() : null
+
+            if (targetText) {
+                console.log(`Menu item clicked: ${targetText}`)
+                handleNavigation(targetText)
+            } else {
+                console.log('Clicked target has no .text element.')
+            }
+        }
+    })
+
+    // Add individual click event listeners to each menu item
+    menuItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const textElement = item.querySelector('.text')
+            const targetText = textElement ? textElement.textContent.trim() : null
+
+            if (targetText) {
+                console.log(`Menu item clicked directly: ${targetText}`)
+                handleNavigation(targetText)
+            } else {
+                console.log('Clicked menu item has no .text element.')
+            }
         })
     })
 
@@ -1188,15 +1363,19 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault()
             const email = document.getElementById('email').value
             const message = document.getElementById('message').value
-            console.log('Form submitted:', { email, message })
-            // Here you would typically send this data to a server
-            alert('Thank you for your message. We will get back to you soon!')
+            console.log(`Form submitted: Email - ${email}, Message - ${message}`)
             contactForm.reset()
         })
     }
 
     document.addEventListener("mousemove", updateCursor, { passive: true })
-})
 
+    // Add a simple click event listener to the body
+    document.body.addEventListener('click', (event) => {
+        console.log(`Body clicked: ${event.target.tagName}`)
+    })
 
+    // Initialize the home section as active
+    handleNavigation('Home')
+}
 

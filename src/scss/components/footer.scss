@@ -1,67 +1,30 @@
 .footer {
-  bottom: 50px;
-  z-index: 200;
-  width: 100%;
-  padding: 0px 40px;
-  pointer-events: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
   display: flex;
   align-items: center;
-  pointer-events: auto;
-  position: absolute;
-  justify-content: end;
-
-  @include respond-to(smartphone) {
-    bottom: 100px;
-    padding: 0px 20px;
-  }
+  justify-content: flex-end;
+  pointer-events: none;
 
   &__link {
     display: flex;
     align-items: center;
-    justify-self: center;
+    justify-content: center;
     margin: 0 8px;
-    transform: scale(0.8);
+    transform: scale(1.0);
     transition: transform 0.3s var(--ease-out-bounce);
-
-    @include respond-to(smartphone) {
-      margin: 0 5px;
-    }
-
-    &:first-child {
-      margin-left: 0;
-    }
-
-    &:last-child {
-      margin-right: 0;
-    }
-
-    &--learn {
-      font-size: 27px;
-      color: var(--color-footer);
-      @include respond-to(smartphone) {
-        margin-right: auto;
-        font-size: 22px;
-      }
-    }
+    pointer-events: auto;
 
     &:hover {
-      transform: none;
-      transition: transform 0.3s var(--ease-out-bounce);
+      transform: scale(1.5);
     }
   }
 
   &__icon {
     width: 24px;
     height: 24px;
-
-    @include respond-to(smartphone) {
-      width: 18px;
-      height: 18px;
-    }
-
-    path {
-      fill: var(--color-footer);
-      stroke: var(--color-footer);
-    }
+    color: #000000; // This will make the icons black
   }
 }

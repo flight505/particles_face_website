@@ -1,4 +1,5 @@
 import os
+
 from PIL import Image
 
 
@@ -7,7 +8,7 @@ def create_sprite_sheet(
 ):
     # Constants
     sprite_width, sprite_height = 300, 150
-    columns, rows = 6, 5  # For 30 frames (6x5 grid)
+    columns, rows = 6, 10  # For 60 frames (5x10 grid)
 
     sheet_width = sprite_width * columns
     sheet_height = sprite_height * rows
@@ -68,8 +69,8 @@ def create_sprite_sheet(
 
 
 if __name__ == "__main__":
-    input_folder = "py_scripts/output_front_up_left_30_frames"
-    output_file = "py_scripts/front_up_left_sprite_sheet.png"
+    input_folder = "py_scripts/output_360_face_frames"
+    output_file = "py_scripts/360_face_sprite_sheet.png"
     background_image_path = (
         None  # Uncomment and set path if you want to use a background image
     )
